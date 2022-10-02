@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "client",
     "server",
+    "client_lib",
     "cli_client",
 ]
