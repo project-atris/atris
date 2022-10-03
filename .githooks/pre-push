@@ -1,0 +1,2 @@
+cargo lambda build --bin server --release --target x86_64-unknown-linux-musl 
+cargo lambda deploy AtrisAuthLambda --binary-name server 
