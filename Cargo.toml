@@ -5,4 +5,5 @@ members = [
     "server_lambda",
     "client_lib",
     "cli_client",
+    "new-lambda-project"
 ]
