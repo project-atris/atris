@@ -38,7 +38,6 @@ pub struct LambdaRequest {
 // Formats the output response
 #[derive(Deserialize, Serialize, Clone)]
 pub struct LambdaResponse {
-    success: i32,
     message: Option<String>,
 }
 
@@ -50,7 +49,6 @@ pub async fn handler(event: LambdaEvent<LambdaRequest>) -> Result<LambdaResponse
 
     // generate the response to the user
     let response = LambdaResponse {
-        success: 0,
         message: Some(format!("Hello {name}!", name = payload.full_name)),
     };
 
