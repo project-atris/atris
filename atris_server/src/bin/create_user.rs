@@ -1,4 +1,4 @@
-use atris_server::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY, SALT_KEY, REGION};
+use atris_server::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY, REGION};
 use atris_common::create_user::*;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_dynamodb::Client;
@@ -30,7 +30,7 @@ async fn create_user(event:LambdaEvent<CreateUserRequest>)->Result<CreateUserRes
         .table_name(TABLE_NAME)
         .item(USERNAME_KEY, AttributeValue::S(request.username))
         .item(PASSWORD_KEY,AttributeValue::S(password_hash.to_string()));
-    dbrequest.send().await.map_err(|e| {
+    dbrequest.send().await.map_err(|_| {
         CreateUserError::DatabaseWriteError
     })?;
 

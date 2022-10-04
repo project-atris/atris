@@ -1,5 +1,5 @@
-use argon2::{PasswordHash, Argon2};
-use atris_server::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY, SALT_KEY};
+use argon2::Argon2;
+use atris_server::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY};
 use atris_common::authenticate_user::*;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_dynamodb::Client;
