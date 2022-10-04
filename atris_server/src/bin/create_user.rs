@@ -1,4 +1,4 @@
-use atris_server_common::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY, SALT_KEY, REGION};
+use atris_server::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY, SALT_KEY, REGION};
 use atris_common::create_user::*;
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_dynamodb::Client;
