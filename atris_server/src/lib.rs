@@ -15,7 +15,7 @@ macro_rules! run_lambda {
 
 
 pub const USERNAME_KEY:&'static str="username";
-pub const PASSWORD_KEY:&'static str="hased_salted_password";
+pub const PASSWORD_KEY:&'static str="hashed_salted_password";
 pub const SALT_KEY:&'static str="salt";
 
 pub const TABLE_NAME:&'static str="atris_auth";

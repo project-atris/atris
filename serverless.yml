@@ -1,0 +1,25 @@
+service: AtrisServer
+provider:
+  name: aws
+  runtime: rust
+  memorySize: 128
+
+package:
+  individually: true
+
+plugins:
+  - serverless-rust
+
+functions:
+  CreateUser:
+    handler: atris_server.create_user
+    events:
+      - http:
+          path: /create_user
+          method: post
+  AuthenticateUser:
+    handler: atris_server.authenticate_user
+    events:
+      - http:
+          path: /authenticate_user
+          method: post
