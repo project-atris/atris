@@ -1,7 +1,7 @@
 use atris_server::{run_lambda, TABLE_NAME, USERNAME_KEY, PASSWORD_KEY, REGION};
 use atris_common::create_user::*;
 use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::{Client, types::SdkError};
 use aws_sdk_dynamodb::model::AttributeValue;
 use lambda_runtime::LambdaEvent;
 use password_hash::SaltString;
@@ -28,11 +28,19 @@ async fn create_user(event:LambdaEvent<CreateUserRequest>)->Result<CreateUserRes
     let dbrequest = dbclient
         .put_item()
         .table_name(TABLE_NAME)
-        .item(USERNAME_KEY, AttributeValue::S(request.username))
+        .condition_expression(format!("attribute_not_exists({})",USERNAME_KEY))
+        .item(USERNAME_KEY, AttributeValue::S(request.username.clone()))
         .item(PASSWORD_KEY,AttributeValue::S(password_hash.to_string()));
-    dbrequest.send().await.map_err(|_| {
+    dbrequest.send().await.map_err(|e| {
+        if let SdkError::ServiceError { err, .. } = &e{
+            if err.is_conditional_check_failed_exception() {
+                return CreateUserError::DuplicateUsername(request.username)
+            }
+        }
+        dbg!(e);
         CreateUserError::DatabaseWriteError
     })?;
+    dbg!("Success?");
 
     Ok(CreateUserResponse)
 }

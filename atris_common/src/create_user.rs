@@ -26,7 +26,7 @@ impl Display for CreateUserError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DuplicateUsername(username)=>{
-                write!(f, "Username {} is already taken",username)
+                write!(f, "Username '{}' is already taken",username)
             },
             Self::HashError=>{
                 write!(f, "Error creating password hash")  
