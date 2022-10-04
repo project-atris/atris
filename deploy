@@ -1,0 +1,3 @@
+cargo lambda build --release -p atris_server
+cargo lambda deploy CreateUser --binary-name create_user
+cargo lambda deploy AuthenticateUser --binary-name authenticate_user
