@@ -1,5 +1,5 @@
 use argon2::Argon2;
-use atris_common::authenticate_user::*;
+use atris_common::{authenticate_user::*, REGION};
 use atris_server::{run_lambda, PASSWORD_KEY, TABLE_NAME, USERNAME_KEY};
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_dynamodb::model::AttributeValue;
@@ -10,15 +10,15 @@ run_lambda!(|event:LambdaEvent<AuthenticateUserRequest>|->Result<AuthenticateUse
     let request = event.payload;
 
     // interact with the database
-    let region_provider = RegionProviderChain::first_try("us-west-2").or_default_provider();
-    let dbconfig = aws_config::from_env().region(region_provider).load().await;
-    let dbclient = Client::new(&dbconfig);
-    let dbrequest = dbclient
+    let region_provider = RegionProviderChain::first_try(REGION).or_default_provider();
+    let db_config = aws_config::from_env().region(region_provider).load().await;
+    let db_client = Client::new(&db_config);
+    let db_request = db_client
         .get_item()
         .table_name(TABLE_NAME)
         .key(USERNAME_KEY, AttributeValue::S(request.username.clone()))
         .attributes_to_get(PASSWORD_KEY);
-    let output = dbrequest.send().await.map_err(|_| AuthenticateUserError::DatabaseRead)?;
+    let output = db_request.send().await.map_err(|_| AuthenticateUserError::DatabaseRead)?;
     let item = output.item();
 
     let user = item.ok_or(AuthenticateUserError::UnknownUsername(request.username))?;
@@ -26,7 +26,7 @@ run_lambda!(|event:LambdaEvent<AuthenticateUserRequest>|->Result<AuthenticateUse
     let actual_salted_and_hashed_password = user.get(PASSWORD_KEY).ok_or(AuthenticateUserError::MissingPassword)?.as_s().map_err(|_|AuthenticateUserError::MissingPassword)?;
     password_hash::PasswordHash::new(actual_salted_and_hashed_password).map_err(|_|{
         AuthenticateUserError::MissingPassword
-    })?.verify_password(&[&Argon2::default()], request.password_attempt).map_err(|_|{
+    })?.verify_password(&[&Argon2::default()], request.password_attempt).map_err(|e|{
         AuthenticateUserError::WrongPassword
     })?;
 

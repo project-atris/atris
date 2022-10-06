@@ -32,3 +32,6 @@ impl Display for AtrisError {
         }
     }
 }
+
+/// The region for Atris on Lambda
+pub const REGION: &'static str = "us-west-2";

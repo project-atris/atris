@@ -33,6 +33,7 @@ pub type InvocationResult<T> =  Result<T, InvocationError>;
 /// The API of the Atris authentication server
 /// This bundles all of the functions necessary for user creation and authentication, as well as initiating the key exchange
 /// ```
+/// use atris_client_lib::AtrisAuthClient;
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 ///     /// Create the client to the authorization server

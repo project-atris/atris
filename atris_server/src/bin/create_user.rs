@@ -1,16 +1,11 @@
-use std::fmt::Display;
-use std::future::Future;
-use std::pin::Pin;
-
 use argon2::{Argon2, PasswordHasher};
-use atris_common::create_user::*;
-use atris_server::{run_lambda, PASSWORD_KEY, REGION, TABLE_NAME, USERNAME_KEY};
+use atris_common::{create_user::*, REGION};
+use atris_server::{run_lambda, PASSWORD_KEY, TABLE_NAME, USERNAME_KEY};
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_dynamodb::model::AttributeValue;
 use aws_sdk_dynamodb::{types::SdkError, Client};
 use lambda_runtime::LambdaEvent;
 use password_hash::SaltString;
-use serde::{Deserialize, Serialize};
 
 run_lambda!(
     |event: LambdaEvent<CreateUserRequest>| -> Result<CreateUserResponse, CreateUserError> {
@@ -31,6 +26,7 @@ run_lambda!(
             .table_name(TABLE_NAME)
             .item(USERNAME_KEY, AttributeValue::S(request.username.clone()))
             .item(PASSWORD_KEY, AttributeValue::S(password_hash.to_string()));
+
         dbrequest.send().await.map_err(|e| {
             if let SdkError::ServiceError { err, .. } = &e {
                 if err.is_conditional_check_failed_exception() {
