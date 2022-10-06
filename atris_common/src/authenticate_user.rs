@@ -5,8 +5,11 @@ use std::fmt::Display;
 /// A request to authenticate a user on the atris auth server. The server will respond with a Result<AuthenticateUserResponse,AuthenticateUserError>
 #[derive(Deserialize, Serialize, Debug)]
 pub struct AuthenticateUserRequest {
+    /// The username attempted to log in
     pub username: String,
-    pub password_attempt: String,
+    /// The password the user attempted to enter, which is transferred unhashed and unsalted
+    /// - Note: This is common practice as long as the connection is encrypted
+    pub password_attempt: String,   
 }
 
 /// A successful response to a [`AuthenticateUserRequest`] on the atris auth server.
@@ -17,10 +20,15 @@ pub struct AuthenticateUserResponse; // TODO: Add some sort of authentication ti
 /// A response to a [`AuthenticateUserRequest`] on the atris auth server. For success response, see [`AuthenticateUserResponse`]
 #[derive(Deserialize, Serialize, Debug)]
 pub enum AuthenticateUserError {
+    /// The username attemtped was not found in the database
     UnknownUsername(String),
+    /// The stored user record does not have a password
     MissingPassword,
+    /// The password attemtped did not match the stored password
     WrongPassword,
+    /// Failed to read the user record from the database
     DatabaseRead,
+    /// Failed to write to the databse
     DatabaseWrite,
 }
 impl Display for AuthenticateUserError {

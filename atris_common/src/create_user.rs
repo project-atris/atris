@@ -7,7 +7,9 @@ use std::pin::Pin;
 /// A request to create a user on the atris auth server. The server will respond with a Result<CreateUserResponse,CreateUserError>
 #[derive(Deserialize, Serialize, Debug)]
 pub struct CreateUserRequest {
+    /// The username attempted to create
     pub username: String,
+    /// The password to assign to the created user
     pub password: String,
 }
 
@@ -19,8 +21,11 @@ pub struct CreateUserResponse; // TODO: See if anything else needs to be returne
 /// A response to a [`CreateUserRequest`] on the atris auth server. For success response, see [`CreateUserResponse`]
 #[derive(Deserialize, Serialize, Debug)]
 pub enum CreateUserError {
+    /// The username requested already exists in the server
     DuplicateUsername(String),
+    /// The hashing function failed to hash the provided password
     HashError,
+    /// The write of the user's data failed
     DatabaseWriteError,
 }
 impl Display for CreateUserError {
