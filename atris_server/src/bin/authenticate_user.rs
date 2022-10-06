@@ -26,7 +26,7 @@ run_lambda!(|event:LambdaEvent<AuthenticateUserRequest>|->Result<AuthenticateUse
     let actual_salted_and_hashed_password = user.get(PASSWORD_KEY).ok_or(AuthenticateUserError::MissingPassword)?.as_s().map_err(|_|AuthenticateUserError::MissingPassword)?;
     password_hash::PasswordHash::new(actual_salted_and_hashed_password).map_err(|_|{
         AuthenticateUserError::MissingPassword
-    })?.verify_password(&[&Argon2::default()], request.attempted_password).map_err(|_|{
+    })?.verify_password(&[&Argon2::default()], request.password_attempt).map_err(|_|{
         AuthenticateUserError::WrongPassword
     })?;
 

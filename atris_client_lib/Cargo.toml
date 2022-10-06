@@ -6,4 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyper = "0.14.20"
+atris_common = { version = "0.1.0", path = "../atris_common" }
+aws-config = "0.49.0"
+aws-sdk-lambda = "0.19.0"
+const_format = "0.2.26"
+reqwest = {version = "0.11.12",features=["blocking","json"]}
+serde = "1.0.145"
+tokio = {version = "1.21.2", features = ["full"] }
+serde_json = "1.0.85"
