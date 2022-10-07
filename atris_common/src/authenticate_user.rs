@@ -9,7 +9,7 @@ pub struct AuthenticateUserRequest {
     pub username: String,
     /// The password the user attempted to enter, which is transferred unhashed and unsalted
     /// - Note: This is common practice as long as the connection is encrypted
-    pub password_attempt: String,   
+    pub password_attempt: String,
 }
 
 /// A successful response to a [`AuthenticateUserRequest`] on the atris auth server.

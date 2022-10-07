@@ -1,14 +1,14 @@
 use argon2::Argon2;
 use atris_common::{authenticate_user::*, REGION};
-use atris_server::{run_lambda, PASSWORD_KEY, TABLE_NAME, USERNAME_KEY};
-use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_dynamodb::model::AttributeValue;
-use aws_sdk_dynamodb::Client;
+use atris_server::{run_lambda, PASSWORD_KEY, TABLE_NAME, USERNAME_KEY, AtrisDBClient};
 use lambda_runtime::LambdaEvent;
 
 run_lambda!(|event:LambdaEvent<AuthenticateUserRequest>|->Result<AuthenticateUserResponse, AuthenticateUserError> {
+
+    // Request from the user
     let request = event.payload;
 
+    /* 
     // interact with the database
     let region_provider = RegionProviderChain::first_try(REGION).or_default_provider();
     let db_config = aws_config::from_env().region(region_provider).load().await;
@@ -29,6 +29,14 @@ run_lambda!(|event:LambdaEvent<AuthenticateUserRequest>|->Result<AuthenticateUse
     })?.verify_password(&[&Argon2::default()], request.password_attempt).map_err(|e|{
         AuthenticateUserError::WrongPassword
     })?;
+    */
 
+    //  Retrieve user from database
+    let client = AtrisDBClient::new().await;
+    let user = client
+        .get_user(request.username.clone())
+        .await
+        .map_err(|_| AuthenticateUserError::DatabaseRead)? //return database error
+        .ok_or(AuthenticateUserError::UnknownUsername(request.username.clone()))?; //return user doesn't exist error
     Ok(AuthenticateUserResponse)
 });

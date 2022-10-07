@@ -1,11 +1,14 @@
 use argon2::{Argon2, PasswordHasher};
-use atris_common::{REGION, create_user::{CreateUserError, CreateUserResponse}};
+use atris_common::{
+    create_user::{CreateUserError, CreateUserResponse},
+    REGION,
+};
 use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_dynamodb::{model::AttributeValue, types::SdkError, error::GetItemError};
+use aws_sdk_dynamodb::Client;
+use aws_sdk_dynamodb::{error::GetItemError, model::AttributeValue, types::SdkError};
 use password_hash::SaltString;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, future::Future, pin::Pin, ops::Index, collections::HashMap};
-use aws_sdk_dynamodb::Client;
+use std::{collections::HashMap, fmt::Display, future::Future, ops::Index, pin::Pin};
 
 /// Generates the main function for a lambda which uses the provided function as its handler
 #[macro_export]
@@ -30,25 +33,25 @@ macro_rules! run_lambda {
     };
 }
 
-// 
+//
 pub struct User {
     /// The user's username
     username: String,
     /// The salted and hashed digest of the user's password
     password_hash: String,
 }
-impl User{
+impl User {
     fn new(username: String, password_hash: String) -> Self {
         Self {
             username,
-            password_hash
+            password_hash,
         }
     }
 
     fn from_map(map: &HashMap<String, AttributeValue>) -> Option<Self> {
         let username = map.get(USERNAME_KEY)?.as_s().ok()?;
         let password = map.get(PASSWORD_KEY)?.as_s().ok()?;
-        Some(Self::new(username.clone(),password.clone()))
+        Some(Self::new(username.clone(), password.clone()))
     }
 }
 
@@ -69,9 +72,14 @@ impl AtrisDBClient {
     }
 
     /// Creates a new user if they do not exist
-    pub async fn create_user(&self, username: String, password: String) -> Result<CreateUserResponse, CreateUserError> {
+    pub async fn create_user(
+        &self,
+        username: String,
+        password: String,
+    ) -> Result<CreateUserResponse, CreateUserError> {
         // Generate a request, which includes the username and (hopefully hashed) password
-        let db_request = self.client
+        let db_request = self
+            .client
             .put_item()
             .condition_expression(format!("attribute_not_exists({})", USERNAME_KEY))
             .table_name(TABLE_NAME)
@@ -91,23 +99,23 @@ impl AtrisDBClient {
         Ok(CreateUserResponse)
     }
 
-    pub async fn get_user(&self,username:String) -> Result<Option<User>,SdkError<GetItemError>> {
-        let db_request = self.client
+    pub async fn get_user(&self, username: String) -> Result<Option<User>, SdkError<GetItemError>> {
+        let db_request = self
+            .client
             .get_item()
             .table_name(TABLE_NAME)
             .key(USERNAME_KEY, AttributeValue::S(username.clone()))
-            .attributes_to_get(PASSWORD_KEY).send().await?;
+            .attributes_to_get(USERNAME_KEY)
+            .attributes_to_get(PASSWORD_KEY)
+            .send()
+            .await?;
         return Ok(db_request.item().and_then(User::from_map));
     }
 }
-pub enum GetUserError{
-
-}
+pub enum GetUserError {}
 
 pub const USERNAME_KEY: &'static str = "username";
 pub const PASSWORD_KEY: &'static str = "hashed_salted_password";
 pub const SALT_KEY: &'static str = "salt";
 
 pub const TABLE_NAME: &'static str = "atris_auth";
-
-

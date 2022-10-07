@@ -1,3 +1,9 @@
 cargo lambda build --release -p atris_server
 cargo lambda deploy CreateUser --binary-name create_user
 cargo lambda deploy AuthenticateUser --binary-name authenticate_user
+
+# NOTES
+# to test a module (create_user, authenticate_user), do 
+#   cargo lambda watch -- -- cargo run --bin [module]
+# and in a different terminal do
+#   cargo lambda invoke --data-ascii '{"datafield":"data", "datafield":"data"}'
