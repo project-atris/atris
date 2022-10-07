@@ -1,5 +1,6 @@
 use argon2::{Argon2, PasswordHasher};
 use atris_common::{
+    authenticate_user::AuthenticateUserError,
     create_user::{CreateUserError, CreateUserResponse},
     REGION,
 };
@@ -36,9 +37,9 @@ macro_rules! run_lambda {
 //
 pub struct User {
     /// The user's username
-    username: String,
+    pub username: String,
     /// The salted and hashed digest of the user's password
-    password_hash: String,
+    pub password_hash: String,
 }
 impl User {
     fn new(username: String, password_hash: String) -> Self {
@@ -99,16 +100,18 @@ impl AtrisDBClient {
         Ok(CreateUserResponse)
     }
 
-    pub async fn get_user(&self, username: String) -> Result<Option<User>, SdkError<GetItemError>> {
+    /// Retrieves the user of the specified username
+    pub async fn get_user(&self, username: String) -> Result<Option<User>, AuthenticateUserError> {
         let db_request = self
             .client
             .get_item()
             .table_name(TABLE_NAME)
             .key(USERNAME_KEY, AttributeValue::S(username.clone()))
-            .attributes_to_get(USERNAME_KEY)
+            .attributes_to_get(USERNAME_KEY) //get the relevant fields
             .attributes_to_get(PASSWORD_KEY)
             .send()
-            .await?;
+            .await
+            .map_err(|_| AuthenticateUserError::DatabaseRead)?; //convert SdkError to AuthenticateUserError
         return Ok(db_request.item().and_then(User::from_map));
     }
 }
