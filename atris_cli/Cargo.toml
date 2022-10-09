@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 atris_client_lib = {path="../atris_client_lib"}
+tokio = "1.21.2"

@@ -19,3 +19,6 @@ atris_common = {path="../atris_common"}
 password-hash = "0.4.2"
 argon2 = {version="0.4.1",features=["alloc","password-hash"]}
 rand = { version = "0.8.5", default-features = false, features=["std"] }
+lambda_http = "0.6.2"
+env_logger = "0.9.1"
+tracing-subscriber = "0.3.16"

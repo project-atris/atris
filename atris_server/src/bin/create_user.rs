@@ -1,13 +1,14 @@
 use argon2::{Argon2, PasswordHasher};
-use atris_common::create_user::*;
-use atris_server::{run_lambda, AtrisDBClient};
-use lambda_runtime::LambdaEvent;
+use atris_common::{create_user::*, REGION};
+use atris_server::{PASSWORD_KEY, TABLE_NAME, USERNAME_KEY, run_lambda_http, AtrisDBClient};
+use aws_config::meta::region::RegionProviderChain;
+use aws_sdk_dynamodb::model::AttributeValue;
+use aws_sdk_dynamodb::{types::SdkError, Client};
 use password_hash::SaltString;
 
-run_lambda!(
-    |event: LambdaEvent<CreateUserRequest>| -> Result<CreateUserResponse, CreateUserError> {
-        // Request from the user
-        let request = event.payload;
+run_lambda_http!(
+    |request: Request<CreateUserRequest>| -> Result<CreateUserResponse, CreateUserError> {
+        let (_,request) = request.into_parts();
 
         // Generate a salt for the given password
         let salt = SaltString::generate(rand::rngs::OsRng);
@@ -20,6 +21,9 @@ run_lambda!(
         dbg!("Success?");
         client
             .create_user(request.username, password_hash.to_string())
-            .await
+            .await?;
+
+
+        Ok(CreateUserResponse)
     }
 );

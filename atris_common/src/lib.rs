@@ -6,32 +6,18 @@ pub mod authenticate_user;
 pub mod create_user;
 
 // Error enum
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Debug,PartialEq, Eq)]
 pub enum AtrisError {
-    DuplicateUsername(String),
-    DatabasePutError,
-    DatabaseGetError,
-    ConnectionError,
+    SerdeError(String)
 }
-
 impl Display for AtrisError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AtrisError::DuplicateUsername(username) => {
-                write!(f, "Username {} was already taken", username)
-            }
-            AtrisError::DatabasePutError => {
-                write!(f, "Ran into a problem putting item to database.")
-            }
-            AtrisError::DatabaseGetError => {
-                write!(f, "Ran into a problem getting item from database.")
-            }
-            AtrisError::ConnectionError => {
-                write!(f, "Ran into a problem connecting to the database.")
+            Self::SerdeError(err)=>{
+                write!(f,"Serde Error: {}",err)
             }
         }
     }
 }
-
 /// The region for Atris on Lambda
 pub const REGION: &'static str = "us-west-2";
