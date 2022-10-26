@@ -4,5 +4,6 @@ members = [
     "atris_server",
     "atris_cli",
     "atris_client_lib",
-    "atris_common"
+    "atris_common",
+    "rtc"
 ]
