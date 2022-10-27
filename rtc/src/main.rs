@@ -11,6 +11,9 @@ extern crate lazy_static;
 fn main() {
     //let matches = command!() // requires `cargo` feature
     //    .arg(arg!(
+    //        <location> "Mandatory field"
+    //    ))
+    //    .arg(arg!(
     //        [name] "Optional name to operate on"
     //    ))
     //    .arg(arg!(
@@ -30,12 +33,23 @@ fn main() {
     // Process the arguments with clap
     let args = command!()
         .about("testing this") // about this project
+        .arg(arg!(
+            <boop> "Testing another mandatory thing"
+        ))
+        .arg(arg!(
+            [test] "Testing a mandatory thing"
+        ))
+        .arg(arg!(
+            [testing] "Testing another mandatory thing"
+        ))
         .arg(arg!( // first arg, client
             -c --client "Run as client instead of server"
         ))
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
     //println!("{:?}", args.get_one::<bool>("client"));
+    println!("{:?}", args.get_one::<String>("test"));
+    println!("{:?}", args.get_one::<String>("testing"));
 
     if *args.get_one::<bool>("client").unwrap() {
         client::main();
