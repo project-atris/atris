@@ -20,11 +20,11 @@ pub struct AuthenticateUserResponse; // TODO: Add some sort of authentication ti
 /// A response to a [`AuthenticateUserRequest`] on the atris auth server. For success response, see [`AuthenticateUserResponse`]
 #[derive(Deserialize, Serialize, Debug)]
 pub enum AuthenticateUserError {
-    /// The username attemtped was not found in the database
+    /// The username attempted was not found in the database
     UnknownUsername(String),
     /// The stored user record does not have a password
     MissingPassword,
-    /// The password attemtped did not match the stored password
+    /// The password attempted did not match the stored password
     WrongPassword,
     /// Failed to read the user record from the database
     DatabaseRead,
@@ -46,7 +46,7 @@ impl Display for AuthenticateUserError {
             Self::DatabaseRead => {
                 write!(
                     f,
-                    "Failed to read user authentiacation details from to the database"
+                    "Failed to read user authentication details from the database"
                 )
             }
             Self::DatabaseWrite => {

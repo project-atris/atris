@@ -5,14 +5,14 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 pub mod sdk_auth;
 pub mod http_auth;
 
-/// An error resulting from invocing an Atris Lambda function
+/// An error resulting from invoking an Atris Lambda function
 #[derive(Debug)]
 pub enum InvocationError<E> {
     /// A miscellaneous error from the Lambda function implementation
     ImplementationError(E),
-    /// An error which occoured while trying to serialize the request payload to send to the Lambda function
+    /// An error which occurred while trying to serialize the request payload to send to the Lambda function
     SerializationError(serde_json::Error),
-    /// An error which occoured while trying to deserialize the response payload recieved from the Lambda function
+    /// An error which occurred while trying to deserialize the response payload received from the Lambda function
     DeserializationError(serde_json::Error),
     /// A lambda request which, for some reason, did not return a payload
     NoResponse,
@@ -22,7 +22,7 @@ impl <E> From<E> for InvocationError<E> {
         InvocationError::ImplementationError(err)
     }
 }
-/// A [`Result`] resulting from invocing an Atris Lambda function
+/// A [`Result`] resulting from invoking an Atris Lambda function
 pub type InvocationResult<R,E> =  Result<R, InvocationError<E>>;
 
 
@@ -46,7 +46,7 @@ pub trait AtrisAuthClient {
 
     // /// The request the core of the client can actually send
     // type BaseRequest:Send;
-    /// The request the core of the client actually recieves
+    /// The request the core of the client actually receives
     type BaseResponse:Send;
 
     /// An error caused by the core of this client
