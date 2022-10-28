@@ -1,5 +1,6 @@
 mod client;
 mod server;
+mod compress;
 mod signal;
 
 use clap::{arg, command, value_parser, ArgAction, Command};
@@ -32,29 +33,28 @@ fn main() {
 
     // Process the arguments with clap
     let args = command!()
-        .about("testing this") // about this project
         .arg(arg!(
-            <boop> "Testing another mandatory thing"
+            --server "Run WebRTC testing as server"
         ))
         .arg(arg!(
-            [test] "Testing a mandatory thing"
+            --client "Run WebRTC testing as client"
         ))
         .arg(arg!(
-            [testing] "Testing another mandatory thing"
-        ))
-        .arg(arg!( // first arg, client
-            -c --client "Run as client instead of server"
+            --compress "Run compression testing"
         ))
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
-    //println!("{:?}", args.get_one::<bool>("client"));
-    println!("{:?}", args.get_one::<String>("test"));
-    println!("{:?}", args.get_one::<String>("testing"));
+    let options = vec!["client", "server", "compress"];
 
-    if *args.get_one::<bool>("client").unwrap() {
-        client::main();
-    } else {
-        server::main();
+    for option in options.iter() {
+        if *args.get_one::<bool>(option).unwrap() {
+            match *option {
+                "server" => {server::main();},
+                "client" => {client::main();},
+                "compress" => {compress::main();},
+                _ => (),
+            }
+            break;
+        }
     }
-
 }
