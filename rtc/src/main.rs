@@ -45,6 +45,7 @@ fn main() {
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
     let options = vec!["client", "server", "compress"];
+    let mut found = false;
 
     for option in options.iter() {
         if *args.get_one::<bool>(option).unwrap() {
@@ -52,9 +53,14 @@ fn main() {
                 "server" => {server::main();},
                 "client" => {client::main();},
                 "compress" => {compress::main();},
-                _ => (),
+                _ => {},
             }
+            found = true;
             break;
         }
+    }
+    
+    if !found {
+        println!("No valid flag provided");
     }
 }
