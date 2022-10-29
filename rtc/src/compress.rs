@@ -8,7 +8,18 @@ use crate::signal;
 use std::str;
 
 pub fn main() {
-    let list = ["basic", "short", "long", "random"];
+    let list = [
+        "basic",
+        "short_1",
+        "short_19",
+        "short_20",
+        "short_25",
+        "short_30",
+        "medium",
+        "medium1",
+        "long",
+        "random",
+    ];
 
     //for name in std::array::IntoIter::into_iter(list) {
     for name in list.into_iter() {
