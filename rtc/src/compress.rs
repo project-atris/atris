@@ -25,7 +25,7 @@ pub fn main() {
     for name in list.into_iter() {
 
         // raw
-        let raw = read_file(&["./text_", name, ".txt"].join(""));
+        let raw = read_file(&["./texts/text_", name, ".txt"].join(""));
         let braw = signal::encode(&String::from_utf8(raw.clone()).unwrap()).as_bytes().to_vec();
 
         // gzip
