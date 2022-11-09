@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::io::Write;
+use std::io;
 use std::sync::Arc;
 use tokio::time::Duration;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -15,9 +16,27 @@ use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
 use crate::signal;
+use crate::comms;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
+    
+    println!("here");
+    let mut comm = comms::AtrisConnection::new_client().await?;
+    println!("here1");
+    let mut buffer = String::new();
+    //let stdin = io::stdin(); // We get `Stdin` here.
+    //stdin.read_line(&mut buffer)?;
+    io::stdin().read_line(&mut buffer)?;
+    println!("here2");
+    comm.set_server(buffer).await?;
+    println!("here3");
+
+    Ok(())
+
+}
+
+pub async fn original() -> Result<()> {
 
     // Everything below is the WebRTC-rs API! Thanks for using it ❤️.
 
@@ -73,6 +92,11 @@ pub async fn main() -> Result<()> {
             Box::pin(async {})
         }))
         .await;
+
+
+
+
+
 
     // Register data channel creation handling
     peer_connection

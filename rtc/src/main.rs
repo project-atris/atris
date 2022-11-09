@@ -3,6 +3,9 @@ mod server;
 mod compress;
 mod signal;
 
+mod comms;
+//mod client_new;
+
 use clap::{arg, command, value_parser, ArgAction, Command};
 
 

@@ -92,7 +92,7 @@ fn compress_z(inp: Vec<u8>) -> Vec<u8> {
     encryptor.finish().unwrap()
 }
 
-fn compress_d(inp: Vec<u8>) -> Vec<u8> {
+pub fn compress_d(inp: Vec<u8>) -> Vec<u8> {
     let mut encryptor = DeflateEncoder::new(Vec::new(), Compression::default());
     encryptor.write_all(inp.as_slice());
     encryptor.finish().unwrap()

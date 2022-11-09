@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::io::Write;
+use std::io;
 use std::sync::Arc;
 use tokio::time::Duration;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -14,9 +15,30 @@ use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
 use crate::signal;
+use crate::comms;
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
+
+    println!("here");
+    let mut comm = comms::AtrisConnection::new_server().await?;
+    println!("here1");
+    let mut buffer = String::new();
+    //let stdin = io::stdin(); // We get `Stdin` here.
+    //stdin.read_line(&mut buffer)?;
+    io::stdin().read_line(&mut buffer)?;
+    println!("here2");
+    comm.set_client(buffer).await?;
+    println!("here3");
+
+
+    
+
+    Ok(())
+    //original().await
+}
+
+pub async fn original() -> Result<()> {
     // Everything below is the WebRTC-rs API! Thanks for using it ❤️.
 
     // Create a MediaEngine object to configure the supported codec
@@ -43,7 +65,7 @@ pub async fn main() -> Result<()> {
     // Prepare the configuration
     let config = RTCConfiguration {
         ice_servers: vec![RTCIceServer {
-            urls: vec!["stun:stun.l.google.com:19302".to_owned()],
+            urls: vec!["stun:stun.l.google.com:19302".to_owned()], //consider switching to stun3
             ..Default::default()
         }],
         ..Default::default()
@@ -51,9 +73,6 @@ pub async fn main() -> Result<()> {
 
     // Create a new RTCPeerConnection
     let peer_connection = Arc::new(api.new_peer_connection(config).await?);
-
-    // Create a datachannel with label 'data'
-    let data_channel = peer_connection.create_data_channel("data", None).await?;
 
     let (done_tx, mut done_rx) = tokio::sync::mpsc::channel::<()>(1);
 
@@ -74,6 +93,17 @@ pub async fn main() -> Result<()> {
             Box::pin(async {})
         }))
         .await;
+
+
+
+
+
+
+
+    // Create a datachannel with label 'data'
+    let data_channel = peer_connection.create_data_channel("data", None).await?;
+
+
 
     // Register channel opening handling
     let d1 = Arc::clone(&data_channel);
@@ -126,6 +156,7 @@ pub async fn main() -> Result<()> {
     if let Some(local_desc) = peer_connection.local_description().await {
         let json_str = serde_json::to_string(&local_desc)?;
         let b64 = signal::encode(&json_str);
+        println!("{}", json_str);
         println!("{}", b64);
     } else {
         println!("generate local_description failed!");
