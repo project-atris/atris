@@ -18,6 +18,11 @@ use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 use crate::signal;
 use crate::comms;
 
+/*
+In the analogy, the browser produces the first block which you paste in the terminal.
+The terminal then produces a block which you paste back in the browser.
+*/
+
 #[tokio::main]
 pub async fn main() -> Result<()> {
     
