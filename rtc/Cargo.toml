@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+aead = "0.5.1"
 anyhow = "1.0.66"
 base64 = "0.13.1"
+chacha20poly1305 = "0.10.1"
 clap = { version = "4.0.18", features = ["cargo"] }
 flate2 = "1.0.24"
 hyper = { version = "0.14.20", features = ["server", "full"] }

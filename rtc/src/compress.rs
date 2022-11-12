@@ -22,10 +22,9 @@ pub fn main() {
     ];
 
     //for name in std::array::IntoIter::into_iter(list) {
-    for name in list.into_iter() {
-
+    for name in list.into_iter() { // Note: You could probably get it to work nicer using this: `fs::read_dir("./texts")`
         // raw
-        let raw = read_file(&["./texts/text_", name, ".txt"].join(""));
+        let raw = read_file(&["/home/terrior/Programming/atris/rtc/texts/text_", name, ".txt"].join(""));
         let braw = signal::encode(&String::from_utf8(raw.clone()).unwrap()).as_bytes().to_vec();
 
         // gzip

@@ -2,6 +2,7 @@ mod client;
 mod server;
 mod compress;
 mod signal;
+mod symmetric;
 
 mod comms;
 //mod client_new;
@@ -45,9 +46,12 @@ fn main() {
         .arg(arg!(
             --compress "Run compression testing"
         ))
+        .arg(arg!(
+            --symmetric "Run symmetric encryption testing"
+        ))
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
-    let options = vec!["client", "server", "compress"];
+    let options = vec!["client", "server", "compress", "symmetric"];
     let mut found = false;
 
     for option in options.iter() {
@@ -56,6 +60,7 @@ fn main() {
                 "server" => {server::main();},
                 "client" => {client::main();},
                 "compress" => {compress::main();},
+                "symmetric" => {symmetric::main();},
                 _ => {},
             }
             found = true;
