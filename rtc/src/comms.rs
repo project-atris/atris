@@ -95,7 +95,7 @@ impl AtrisConnection {
         let data_channel = peer_connection.create_data_channel("data", None).await?;
 
         let (incoming_sender,incoming_receiver) = tokio::sync::mpsc::channel::<String>(20);
-        let (outgoing_sender,outgoing_receiver) = tokio::sync::mpsc::channel::<String>(20);
+        let (outgoing_sender,mut outgoing_receiver) = tokio::sync::mpsc::channel::<String>(20);
 
         // Register channel opening handling
         let arc_data_channel = Arc::clone(&data_channel);
@@ -146,7 +146,7 @@ impl AtrisConnection {
             println!("generate local_description failed!");
         }
 
-        Ok(AtrisConnection { message_sender:outgoing_sender,connection: peer_connection,data_channel, received_messages:incoming_receiver, done_rx, message_sender: todo!() })
+        Ok(AtrisConnection { message_sender:outgoing_sender,connection: peer_connection,data_channel, received_messages:incoming_receiver, done_rx})
     }
 
     
