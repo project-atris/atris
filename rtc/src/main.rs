@@ -1,13 +1,14 @@
-mod client;
-mod server;
+mod initiator;
+mod responder;
 mod compress;
 mod signal;
 mod symmetric;
+mod symmetric_provided;
 
 mod comms;
 //mod client_new;
 
-use clap::{arg, command, value_parser, ArgAction, Command};
+use clap::{arg, command};
 
 
 #[macro_use]
@@ -38,10 +39,10 @@ fn main() {
     // Process the arguments with clap
     let args = command!()
         .arg(arg!(
-            --server "Run WebRTC testing as server"
+            --initiator "Run WebRTC testing as initiator"
         ))
         .arg(arg!(
-            --client "Run WebRTC testing as client"
+            --responder "Run WebRTC testing as responder"
         ))
         .arg(arg!(
             --compress "Run compression testing"
@@ -49,18 +50,22 @@ fn main() {
         .arg(arg!(
             --symmetric "Run symmetric encryption testing"
         ))
+        .arg(arg!(
+            --symmetric_provided "Run symmetric_provided encryption testing"
+        ))
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
-    let options = vec!["client", "server", "compress", "symmetric"];
+    let options = vec!["client", "server", "compress", "symmetric", "symmetric_provided"];
     let mut found = false;
 
     for option in options.iter() {
         if *args.get_one::<bool>(option).unwrap() {
             match *option {
-                "server" => {server::main();},
-                "client" => {client::main();},
+                "initiator" => {initiator::main().unwrap();},
+                "responder" => {responder::main().unwrap();},
                 "compress" => {compress::main();},
                 "symmetric" => {symmetric::main();},
+                "symmetric_provided" => {symmetric_provided::main();},
                 _ => {},
             }
             found = true;

@@ -26,14 +26,14 @@ The browser then produces a block which you paste back in here.
 pub async fn main() -> Result<()> {
 
     println!("here");
-    let mut comm = comms::AtrisConnection::new_server().await?;
+    let mut comm = comms::AtrisConnection::new_initiator().await?;
     println!("here1");
     let mut buffer = String::new();
     //let stdin = io::stdin(); // We get `Stdin` here.
     //stdin.read_line(&mut buffer)?;
     io::stdin().read_line(&mut buffer)?;
     println!("here2");
-    comm.set_client(buffer).await?;
+    comm.set_responder(buffer).await?;
     println!("here3");
 
 

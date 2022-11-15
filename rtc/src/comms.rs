@@ -4,9 +4,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use webrtc::data_channel::RTCDataChannel;
 use webrtc::peer_connection::RTCPeerConnection;
 
-
 use anyhow::{Result, Ok};
-use std::io::Write;
 use tokio::time::Duration;
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
@@ -19,19 +17,26 @@ use webrtc::peer_connection::math_rand_alpha;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
-
-use crate::signal;
-
+use crate::symmetric_provided::EncryptedBytes;
 
 /// Datatype that handles communication between two clients
 pub struct AtrisConnection {
     connection: Arc<RTCPeerConnection>,
+    data_channel: Arc<RTCDataChannel>,
+    //received_messages:Arc<Vec<String>>,
+    message_sender:Sender<String>,
+    received_messages:Receiver<String>,
     done_rx: Receiver<()>,
 }
 impl AtrisConnection {
-
-    /// Create a new server
-    pub async fn new_server() -> Result<AtrisConnection> {
+    pub fn send(&mut self,s:String) {
+        // self.data_channel.send_text(s);
+        self.message_sender.blocking_send(s);
+    }
+}
+impl AtrisConnection {
+    /// Create a new initiator
+    pub async fn new_initiator() -> Result<AtrisConnection> {
         // Create a MediaEngine object to configure the supported codec
         let mut m = MediaEngine::default();
 
@@ -89,25 +94,17 @@ impl AtrisConnection {
         // Create a datachannel with label 'data'
         let data_channel = peer_connection.create_data_channel("data", None).await?;
 
-        // Register channel opening handling
-        let d1 = Arc::clone(&data_channel);
-        data_channel.on_open(Box::new(move || { //THIS IS WHERE THE THINGS ARE GENERATED
-            println!("Data channel '{}'-'{}' open. Random messages will now be sent to any connected DataChannels every 5 seconds", d1.label(), d1.id());
+        let (incoming_sender,incoming_receiver) = tokio::sync::mpsc::channel::<String>(20);
+        let (outgoing_sender,outgoing_receiver) = tokio::sync::mpsc::channel::<String>(20);
 
-            let d2 = Arc::clone(&d1);
+        // Register channel opening handling
+        let arc_data_channel = Arc::clone(&data_channel);
+        data_channel.on_open(Box::new(move || { //THIS IS WHERE THE THINGS ARE GENERATED
+            println!("Data channel '{}'-'{}' open. Random messages will now be sent to any connected DataChannels every 5 seconds", arc_data_channel.label(), arc_data_channel.id());
             Box::pin(async move {
                 let mut result = Result::<usize>::Ok(0);
-                while result.is_ok() {
-                    let timeout = tokio::time::sleep(Duration::from_secs(5));
-                    tokio::pin!(timeout);
-
-                    tokio::select! {
-                        _ = timeout.as_mut() =>{
-                            let message = math_rand_alpha(15);
-                            println!("Sending '{}'", message);
-                            result = d2.send_text(message).await.map_err(Into::into);
-                        }
-                    };
+                while let Some(next_message) = outgoing_receiver.blocking_recv() {
+                    result = arc_data_channel.send_text(next_message).await.map_err(Into::into);
                 }
             })
         })).await;
@@ -118,6 +115,7 @@ impl AtrisConnection {
             .on_message(Box::new(move |msg: DataChannelMessage| {
                 let msg_str = String::from_utf8(msg.data.to_vec()).unwrap();
                 println!("Message from DataChannel '{}': '{}'", d_label, msg_str);
+                incoming_sender.send(msg_str);
                 Box::pin(async {})
             }))
             .await;
@@ -148,13 +146,13 @@ impl AtrisConnection {
             println!("generate local_description failed!");
         }
 
-        Ok(AtrisConnection { connection: peer_connection, done_rx: done_rx })
+        Ok(AtrisConnection { message_sender:outgoing_sender,connection: peer_connection,data_channel, received_messages:incoming_receiver, done_rx, message_sender: todo!() })
     }
 
     
     
-    /// If we created a server, feed the client's response here
-    pub async fn set_client(&mut self, line: String) -> Result<()> {
+    /// If we created a initiator, feed the responder's response here
+    pub async fn set_responder(&mut self, line: String) -> Result<()> {
 
         // Wait for the answer to be pasted
         //let line = signal::must_read_stdin()?;
@@ -243,11 +241,7 @@ impl AtrisConnection {
             }))
             .await;
 
-
-
-
-
-
+        let (data_channel_sender, mut data_channel_receiver) = tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
         // Register data channel creation handling
         peer_connection
             .on_data_channel(Box::new(move |d: Arc<RTCDataChannel>| {
@@ -291,7 +285,7 @@ impl AtrisConnection {
             .await;
 
 
-        Ok(AtrisConnection { connection: peer_connection, done_rx: done_rx })
+        Ok(AtrisConnection { connection: peer_connection, done_rx: done_rx, data_channel: todo!(), message_sender: todo!(), received_messages: todo!() })
     }
 
 
