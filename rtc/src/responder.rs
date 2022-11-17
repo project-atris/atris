@@ -15,6 +15,8 @@ use webrtc::peer_connection::math_rand_alpha;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
+use crate::comms::AtrisConnection;
+use crate::comms::responder::AtrisResponder;
 use crate::signal;
 use crate::comms;
 
@@ -27,14 +29,14 @@ The terminal then produces a block which you paste back in the browser.
 pub async fn main() -> Result<()> {
     
     println!("here");
-    let mut comm = comms::AtrisConnection::new_client().await?;
+    let mut comm = AtrisResponder::new().await?;
     println!("here1");
     let mut buffer = String::new();
     //let stdin = io::stdin(); // We get `Stdin` here.
     //stdin.read_line(&mut buffer)?;
     io::stdin().read_line(&mut buffer)?;
     println!("here2");
-    comm.set_server(buffer).await?;
+    comm.open_channel_with::<String>(buffer).await?;
     println!("here3");
 
     Ok(())
@@ -95,8 +97,7 @@ pub async fn original() -> Result<()> {
             }
 
             Box::pin(async {})
-        }))
-        .await;
+        }));
 
 
 
@@ -133,17 +134,16 @@ pub async fn original() -> Result<()> {
                             };
                         }
                     })
-                })).await;
+                }));
 
                 // Register text message handling
                 d.on_message(Box::new(move |msg: DataChannelMessage| {
                     let msg_str = String::from_utf8(msg.data.to_vec()).unwrap();
                     println!("Message from DataChannel '{}': '{}'", d_label, msg_str);
                     Box::pin(async {})
-                })).await;
+                }));
             })
-        }))
-        .await;
+        })) ;
 
     // Wait for the offer to be pasted
     let line = signal::must_read_stdin()?;

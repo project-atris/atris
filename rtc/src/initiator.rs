@@ -24,21 +24,20 @@ The browser then produces a block which you paste back in here.
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
-
+    use comms::{AtrisConnection,initiator::AtrisInitiator};
     println!("here");
-    let mut comm = comms::AtrisConnection::new_initiator().await?;
+    let mut comm = AtrisInitiator::new(AtrisConnection::new().await?).await?;
     println!("here1");
     let mut buffer = String::new();
     //let stdin = io::stdin(); // We get `Stdin` here.
     //stdin.read_line(&mut buffer)?;
     io::stdin().read_line(&mut buffer)?;
     println!("here2");
-    comm.set_responder(buffer).await?;
+    let channel = comm.into_channel_with::<String>(buffer).await?;
     println!("here3");
 
 
     
-
     Ok(())
     //original().await
 }
@@ -96,8 +95,7 @@ pub async fn original() -> Result<()> {
             }
 
             Box::pin(async {})
-        }))
-        .await;
+        }));
 
 
 
@@ -131,7 +129,7 @@ pub async fn original() -> Result<()> {
                 };
             }
         })
-    })).await;
+    }));
 
     // Register text message handling
     let d_label = data_channel.label().to_owned();
@@ -140,8 +138,7 @@ pub async fn original() -> Result<()> {
             let msg_str = String::from_utf8(msg.data.to_vec()).unwrap();
             println!("Message from DataChannel '{}': '{}'", d_label, msg_str);
             Box::pin(async {})
-        }))
-        .await;
+        }));
 
     // Create an offer to send to the browser
     let offer = peer_connection.create_offer(None).await?;
