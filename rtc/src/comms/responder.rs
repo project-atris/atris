@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use serde::{Serialize, Deserialize};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::{sync::mpsc::{Receiver, Sender}, signal};
 use webrtc::data_channel::RTCDataChannel;
 use webrtc::peer_connection::RTCPeerConnection;
 
@@ -32,21 +32,39 @@ impl AtrisResponder {
         Ok(Self{ connection })
     }
 
+    // pub fn encoded_local_description(&self)->Result<String> {
+    //     let json_str = serde_json::to_string(&self.local_description)?;
+    //     let b64 = signal::encode(&json_str);
+    //     Ok(b64)
+    // }
+
     /// Set the initator's description
-    pub async fn open_channel_with<T>(mut self, offer_str: String) -> Result<AtrisChannel<T>>
+    pub async fn open_channel_with<T>(mut self, offer_str: &String) -> Result<AtrisChannel<T>>
         where T:Serialize+Send+Sync+'static,
         for<'d> T:Deserialize<'d>
     {
         let peer_connection = &mut self.connection.connection;        
 
+        let (data_channel_sender, mut data_channel_receiver) = tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
+        let data_channel_sender = Arc::new(data_channel_sender);
+        // Register data channel creation handling
+        peer_connection
+            .on_data_channel(Box::new(move |data_channel: Arc<RTCDataChannel>| {
+                let data_channel_sender = Arc::clone(&data_channel_sender);
+                Box::pin(async move {data_channel_sender.send(data_channel).await;})
+            }));
+
         // Wait for the offer to be pasted
-        let offer = serde_json::from_str::<RTCSessionDescription>(&offer_str)?;
+        dbg!(&offer_str);
+        let decoded_offer_str = crate::signal::decode(offer_str.as_str())?;
+        dbg!(&decoded_offer_str);
+        let offer = serde_json::from_str::<RTCSessionDescription>(&decoded_offer_str)?;
 
         // Set the remote SessionDescription
-        peer_connection.set_remote_description(offer).await?;
+        dbg!(peer_connection.set_remote_description(offer).await)?;
 
         // Create an answer
-        let answer = peer_connection.create_answer(None).await?;
+        let answer = dbg!(peer_connection.create_answer(None).await)?;
 
         // Create channel that is blocked until ICE Gathering is complete
         let mut gather_complete = peer_connection.gathering_complete_promise().await;
@@ -59,24 +77,17 @@ impl AtrisResponder {
         // in a production application you should exchange ICE Candidates via OnICECandidate
         let _ = gather_complete.recv().await;
 
+
         // Output the answer in base64 so we can paste it in browser
         // -- no, just print the thing normally --
         if let Some(local_desc) = peer_connection.local_description().await {
             let json_str = serde_json::to_string(&local_desc)?;
-            println!("{}", json_str);
-            // Ok(t)
+            let b64 = crate::signal::encode(&json_str);
+            println!("Responder:");
+            crate::signal::print_in_chunks(&b64);
         } else {
             println!("generate local_description failed!");
         }
-
-        let (data_channel_sender, mut data_channel_receiver) = tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
-        let data_channel_sender = Arc::new(data_channel_sender);
-        // Register data channel creation handling
-        peer_connection
-            .on_data_channel(Box::new(move |data_channel: Arc<RTCDataChannel>| {
-                let data_channel_sender = Arc::clone(&data_channel_sender);
-                Box::pin(async move {data_channel_sender.send(data_channel).await;})
-            }));
 
         // println!("Press ctrl-c to stop");
         tokio::select! {

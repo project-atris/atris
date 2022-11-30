@@ -69,11 +69,19 @@ pub async fn http_sdp_server(port: u16) -> mpsc::Receiver<String> {
 pub fn must_read_stdin() -> Result<String> {
     let mut line = String::new();
 
-    std::io::stdin().read_line(&mut line)?;
-    line = line.trim().to_owned();
+    loop {
+        let num_read = std::io::stdin().read_line(&mut line)?;
+        line = line.trim().to_owned();
+        if num_read == 1 {
+            break;
+        }
+    }
     println!();
-
     Ok(line)
+}
+pub fn print_in_chunks(s:&str) {
+    println!("[0]\n{}",&s[0..1023]);
+    println!("[1]\n{}",&s[1023..]);
 }
 
 // Allows compressing offer/answer to bypass terminal input limits.

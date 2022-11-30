@@ -1,4 +1,5 @@
 use anyhow::Result;
+use tokio::io::AsyncReadExt;
 use std::io::Write;
 use std::io;
 use std::sync::Arc;
@@ -26,17 +27,19 @@ The browser then produces a block which you paste back in here.
 pub async fn main() -> Result<()> {
     use comms::{AtrisConnection,initiator::AtrisInitiator};
     println!("here");
-    let mut comm = AtrisInitiator::new(AtrisConnection::new().await?).await?;
+    let comm = AtrisInitiator::new(AtrisConnection::new().await?).await?;
     println!("here1");
-    let mut buffer = String::new();
     //let stdin = io::stdin(); // We get `Stdin` here.
     //stdin.read_line(&mut buffer)?;
-    io::stdin().read_line(&mut buffer)?;
+    println!("Initiator Description: ");
+    crate::signal::print_in_chunks(&comm.encoded_local_description()?);
+    let responder_str = crate::signal::must_read_stdin()?;
     println!("here2");
-    let channel = comm.into_channel_with::<String>(buffer).await?;
+    let mut channel = comm.into_channel_with::<String>(&responder_str).await?;
     println!("here3");
 
-
+    channel.io_loop().await?;    
+    println!("here4");
     
     Ok(())
     //original().await

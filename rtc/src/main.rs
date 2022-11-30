@@ -55,14 +55,16 @@ fn main() {
         ))
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
-    let options = vec!["client", "server", "compress", "symmetric", "symmetric_provided"];
+    let options = vec!["initiator", "responder", "compress", "symmetric", "symmetric_provided"];
     let mut found = false;
 
     for option in options.iter() {
         if *args.get_one::<bool>(option).unwrap() {
             match *option {
-                "initiator" => {initiator::main().unwrap();},
-                "responder" => {responder::main().unwrap();},
+                // "initiator" => {initiator::original().await;},
+                // "responder" => {responder::original().await;},
+                "initiator" => {initiator::main().expect("Initiator err");},
+                "responder" => {responder::main().expect("Responder err");},
                 "compress" => {compress::main();},
                 "symmetric" => {symmetric::main();},
                 "symmetric_provided" => {symmetric_provided::main();},

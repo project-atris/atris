@@ -1,17 +1,26 @@
+use std::sync::Arc;
+
 use anyhow::{Result, Ok};
 use serde::{Serialize, Deserialize};
-use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
+use webrtc::{peer_connection::sdp::session_description::RTCSessionDescription, data_channel::RTCDataChannel};
+
+use crate::signal;
 
 use super::{AtrisConnection,AtrisChannel};
 
 pub struct AtrisInitiator {
     connection:AtrisConnection,
-    local_description: RTCSessionDescription
+    local_description: RTCSessionDescription,
+    data_channel:Arc<RTCDataChannel>,
 }
 impl AtrisInitiator{
     /// Create a new initiator
     pub async fn new(mut connection:AtrisConnection) -> Result<Self> {
         let peer_connection = &mut connection.connection;
+
+        // Create a datachannel with label 'data'
+        let data_channel = peer_connection.create_data_channel("data", None).await?;
+
         // Create an offer to send to the browser
         let offer = peer_connection.create_offer(None).await?;
 
@@ -20,7 +29,7 @@ impl AtrisInitiator{
 
         // Sets the LocalDescription, and starts our UDP listeners
         peer_connection.set_local_description(offer).await?;
-
+    
         // Block until ICE Gathering is complete, disabling trickle ICE
         // we do this because we only can exchange one signaling message
         // in a production application you should exchange ICE Candidates via OnICECandidate
@@ -30,7 +39,7 @@ impl AtrisInitiator{
         // Output the answer in base64 so we can paste it in browser
         // -- Actually, don't convert to base64 because raw json is smaller in size --
         if let Some(local_description) = peer_connection.local_description().await {
-            Ok(Self{ connection ,local_description })
+            Ok(Self{ connection ,local_description,data_channel })
         } else {
             println!("");
             panic!();
@@ -38,23 +47,27 @@ impl AtrisInitiator{
         }
 
     }
-        
+
+    pub fn encoded_local_description(&self)->Result<String> {
+        let json_str = serde_json::to_string(&self.local_description)?;
+        let b64 = signal::encode(dbg!(&json_str));
+        Ok(dbg!(b64))
+    }
     /// If we created an initiator, feed the responder's response here
-    pub async fn into_channel_with<T>(self, responder_string: String) -> Result<AtrisChannel<T>>
+    pub async fn into_channel_with<T>(self, responder_string: &String) -> Result<AtrisChannel<T>>
         where T:Serialize+Send+Sync+'static,
         for<'d> T:Deserialize<'d>
     {
+        let decoded_responder_string = crate::signal::decode(responder_string.as_str())?;        
         // Convert the json input into a useful datatype
-        let responder_description = serde_json::from_str::<RTCSessionDescription>(&responder_string)?;
+        let responder_description = serde_json::from_str::<RTCSessionDescription>(&decoded_responder_string)?;
+
 
         // Apply the answer as the remote description
         self.connection.connection.set_remote_description(responder_description).await?;
 
-        // Create a datachannel with label 'data'
-        let data_channel = self.connection.connection.create_data_channel("data", None).await?;
-
         // Convert that channel into an AtrisChannel
-        let channel = AtrisChannel::new(self.connection, data_channel);
+        let channel = AtrisChannel::new(self.connection, self.data_channel);
 
         Ok(channel)
     }    

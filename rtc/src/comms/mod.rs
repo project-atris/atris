@@ -1,5 +1,7 @@
+use std::convert::Infallible;
 use std::future::Future;
 use std::sync::Arc;
+use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc::error::{SendError,TryRecvError};
 
 use hyper::body::Bytes;
@@ -114,14 +116,14 @@ impl <T> AtrisChannel<T>
             Box::pin(async move {
                 let mut result = Result::<usize>::Ok(0);
                 // Get the next outgoing message from the `outgoing_sender`
-                while let Some(next_message) = outgoing_receiver.blocking_recv() {
+                while let Some(next_message) = outgoing_receiver.recv().await {
                     // Send the next outgoing message and record the result
                     if let Result::Ok(msg) = bincode::serialize::<T>(&next_message){
                         // incoming_sender.blocking_send(&msg);
                         let bytes = Bytes::from(msg);
                         result = arc_data_channel.send(&bytes).await.map_err(Into::into);
                     }
-                    unimplemented!("Sending messages");
+                    // unimplemented!("Sending messages");
                     // result = arc_data_channel.send(next_message).await.map_err(Into::into);
                 }
             })
@@ -129,14 +131,17 @@ impl <T> AtrisChannel<T>
 
         // Register text message handling
         let d_label = data_channel.label().to_owned();
+        let incoming_sender = Arc::new(incoming_sender);
         data_channel
             .on_message(Box::new(move |msg: DataChannelMessage| {
                 // let msg_str = String::from_utf8(msg.data.to_vec()).unwrap();
                 // println!("Message from DataChannel '{}': '{}'", d_label, msg_str);
-                if let Result::Ok(msg) = bincode::deserialize::<T>(&msg.data){
-                    incoming_sender.send(msg);
-                }
-                Box::pin(async {})
+                let incoming_sender = Arc::clone(&incoming_sender);
+                Box::pin(async move {
+                    if let Result::Ok(msg) = bincode::deserialize::<T>(&msg.data){
+                        incoming_sender.send(msg).await;
+                    };
+                })
             }));
         Self {
             connection,
@@ -152,5 +157,36 @@ impl <T> AtrisChannel<T>
 
     pub fn try_receive(&mut self) -> Result<T, TryRecvError> {
         self.receiver.try_recv()
+    }
+    pub async fn receive(&mut self) -> Option<T> {
+        self.receiver.recv().await
+    }
+}
+impl AtrisChannel<String>
+{
+    pub async fn io_loop(mut self)->Result<Infallible>
+    {
+        let mut buffer = [0;1024];
+        let mut input = tokio::io::stdin();
+    
+        loop {
+            tokio::select! {
+                Some(incomming_message) = self.receive() => {
+                    println!("From other user: '{incomming_message}'")
+                },
+                Result::Ok(len) = input.read(&mut buffer) => {
+                    if len > 1 {
+                        if let Result::Ok(msg) = String::from_utf8(Vec::from(buffer)) {
+                            self.send(msg.trim().to_owned()).await?;
+                        }
+                        buffer = [0;1024];
+                    }
+                },
+                else => {
+
+                }
+                
+            };
+        }
     }
 }

@@ -16,6 +16,7 @@ use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
 use crate::comms::AtrisConnection;
+use crate::comms::initiator;
 use crate::comms::responder::AtrisResponder;
 use crate::signal;
 use crate::comms;
@@ -31,13 +32,15 @@ pub async fn main() -> Result<()> {
     println!("here");
     let mut comm = AtrisResponder::new().await?;
     println!("here1");
-    let mut buffer = String::new();
     //let stdin = io::stdin(); // We get `Stdin` here.
     //stdin.read_line(&mut buffer)?;
-    io::stdin().read_line(&mut buffer)?;
+    let initiator_str = crate::signal::must_read_stdin()?;
     println!("here2");
-    comm.open_channel_with::<String>(buffer).await?;
+    let mut channel = comm.open_channel_with::<String>(&initiator_str).await?;
     println!("here3");
+
+    channel.io_loop().await?;    
+    println!("here4");
 
     Ok(())
 
@@ -151,10 +154,10 @@ pub async fn original() -> Result<()> {
     let offer = serde_json::from_str::<RTCSessionDescription>(&desc_data)?;
 
     // Set the remote SessionDescription
-    peer_connection.set_remote_description(offer).await?;
+    dbg!(peer_connection.set_remote_description(offer).await)?;
 
     // Create an answer
-    let answer = peer_connection.create_answer(None).await?;
+    let answer = dbg!(peer_connection.create_answer(None).await)?;
 
     // Create channel that is blocked until ICE Gathering is complete
     let mut gather_complete = peer_connection.gathering_complete_promise().await;
@@ -170,8 +173,8 @@ pub async fn original() -> Result<()> {
     // Output the answer in base64 so we can paste it in browser
     if let Some(local_desc) = peer_connection.local_description().await {
         let json_str = serde_json::to_string(&local_desc)?;
-        let b64 = signal::encode(&json_str);
-        println!("{}", b64);
+        // let b64 = signal::encode(&json_str);
+        println!("{}", json_str);
     } else {
         println!("generate local_description failed!");
     }
