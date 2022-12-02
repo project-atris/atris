@@ -127,10 +127,11 @@ impl AtrisSessionDBClient {
                 dbg!(e);
                 AuthenticateSessionError::DatabaseRead
             })?; //convert SdkError to AuthenticateSessionError
-        Ok(db_request.items().and_then(|s|s.get(0)).and_then(Session::from_map))
+        Ok(db_request
+            .items()
+            .and_then(|s| s.get(0))
+            .and_then(Session::from_map))
     }
-
-
 }
 
 /// A response to a [`CreateUserRequest`] on the atris auth server. For success response, see [`CreateUserResponse`]

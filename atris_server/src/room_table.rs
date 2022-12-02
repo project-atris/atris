@@ -1,15 +1,11 @@
-use atris_common::{Encrypted, REGION, set_room_responder::SetRoomResponderError};
+use atris_common::{set_room_responder::SetRoomResponderError, Encrypted, REGION};
 use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_dynamodb::{
-    model::{AttributeValue, AttributeValueUpdate, AttributeAction, ReturnValue},
+    model::AttributeValue,
     types::{Blob, SdkError},
 };
 
-use atris_common::{
-    create_room::{CreateRoomError, CreateRoomResponse},
-    get_room::GetRoomError,
-    RoomData,
-};
+use atris_common::{create_room::CreateRoomError, join_room::JoinRoomError, RoomData};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 
@@ -27,7 +23,11 @@ impl Room {
         let room_data_slice = map.get(ROOM_DATA_KEY)?.as_b().ok()?.as_ref();
         let room_creator = map.get(ROOM_CREATOR_KEY)?.as_s().ok()?;
         let room_data = bincode::deserialize(room_data_slice).ok()?;
-        Some(Self { room_id, room_data,creator_user_name:room_creator.clone() })
+        Some(Self {
+            room_id,
+            room_data,
+            creator_user_name: room_creator.clone(),
+        })
     }
 }
 
@@ -46,7 +46,7 @@ impl AtrisRoomDBClient {
             client: Client::new(&config),
         }
     }
-    pub async fn create_room(&self, room_id: u16,creator:String) -> Result<(), CreateRoomError> {
+    pub async fn create_room(&self, room_id: u16, creator: String) -> Result<(), CreateRoomError> {
         let db_request = self
             .client
             .put_item()
@@ -66,9 +66,13 @@ impl AtrisRoomDBClient {
         Ok(())
     }
 
-
     /// Update a room
-    pub async fn update_room_data(&self, room_id:u16, updater:String,room_data: Encrypted<RoomData>) -> Result<(), SetRoomResponderError> {
+    pub async fn update_room_data(
+        &self,
+        room_id: u16,
+        updater: String,
+        room_data: Encrypted<RoomData>,
+    ) -> Result<(), SetRoomResponderError> {
         let room_data =
             bincode::serialize(&room_data).map_err(|_| SetRoomResponderError::BincodeError)?;
         // Generate a request, which includes the username and (hopefully hashed) password
@@ -76,15 +80,15 @@ impl AtrisRoomDBClient {
             .client
             .update_item()
             .key(ROOM_ID_KEY, AttributeValue::N(room_id.to_string()))
-            .expression_attribute_values(":updater",AttributeValue::S(updater.clone()))
+            .expression_attribute_values(":updater", AttributeValue::S(updater.clone()))
             .expression_attribute_values(":room_data", AttributeValue::B(Blob::new(room_data)))
             .condition_expression(format!("{ROOM_CREATOR_KEY} = :updater"))
             .table_name(TABLE_NAME)
             .update_expression(format!("SET {ROOM_DATA_KEY}= :room_data"));
-            // .attribute_updates(ROOM_CREATOR_KEY, AttributeValueUpdate::builder().set_action(Some(AttributeAction::Put)).set_value(Some(AttributeValue::S(room.creator_user_name))).build());
+        // .attribute_updates(ROOM_CREATOR_KEY, AttributeValueUpdate::builder().set_action(Some(AttributeAction::Put)).set_value(Some(AttributeValue::S(room.creator_user_name))).build());
 
         // Send the request to the database
-        db_request.send().await.map(|_|{}).map_err(|err| {
+        db_request.send().await.map(|_| {}).map_err(|err| {
             if let SdkError::ServiceError { err, .. } = err {
                 if err.is_conditional_check_failed_exception() {
                     return SetRoomResponderError::NotRoomCreator(updater);
@@ -95,7 +99,7 @@ impl AtrisRoomDBClient {
     }
 
     /// Retrieves the user of the specified username
-    pub async fn get_room(&self, room_id: u16) -> Result<Room, GetRoomError> {
+    pub async fn get_room(&self, room_id: u16) -> Result<Room, JoinRoomError> {
         let db_request = self
             .client
             .get_item()
@@ -106,11 +110,11 @@ impl AtrisRoomDBClient {
             .attributes_to_get(ROOM_DATA_KEY)
             .send()
             .await
-            .map_err(|_| GetRoomError::DatabaseReadError)?; //convert SdkError to GetRoomError
+            .map_err(|_| JoinRoomError::DatabaseReadError)?; //convert SdkError to GetRoomError
         db_request
             .item()
-            .and_then(Room::from_map)
-            .ok_or(GetRoomError::NonexistentRoomId(room_id))
+            .ok_or(JoinRoomError::NonexistentRoomId(room_id))
+            .and_then(|m| Room::from_map(m).ok_or(JoinRoomError::IncompleteRoom))
     }
 }
 

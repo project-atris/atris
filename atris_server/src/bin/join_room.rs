@@ -1,27 +1,28 @@
-use argon2::Argon2;
-use atris_common::authenticate_user::*;
+use atris_common::join_room::*;
 
-use atris_server::{auth_table::AtrisAuthDBClient, run_lambda_http};
+use atris_server::{
+    room_table::AtrisRoomDBClient, run_lambda_http, session_table::AtrisSessionDBClient,
+};
 
 run_lambda_http!(
-    |request:Request<AuthenticateUserRequest>|->Result<AuthenticateUserResponse, AuthenticateUserError> {
+    |request: Request<JoinRoomRequest>| -> Result<JoinRoomResponse, JoinRoomError> {
+        let (_, request) = request.into_parts();
 
-    let (_,request) = request.into_parts();
+        // Retrieve user from database
+        let session_table = AtrisSessionDBClient::new().await;
+        let requester_session = session_table
+            .get_session(request.session_id.clone())
+            .await
+            .ok()
+            .and_then(|a| a);
 
-    // Retrieve user from database
-    let client = AtrisAuthDBClient::new().await;
-    let user = client
-        .get_user(request.username.clone())
-        .await? //return any database errors
-        .ok_or(AuthenticateUserError::UnknownUsername(request.username.clone()))?;  //return user doesn't exist error
+        let _requester_session =
+            requester_session.ok_or(JoinRoomError::InvalidSessionId(request.session_id.clone()))?;
 
-    // Confirm password, return any errors
-    password_hash::PasswordHash::new(&user.password_hash)
-        .map_err(|_| AuthenticateUserError::MissingPassword)?   //check for existing password
-        .verify_password(&[&Argon2::default()], request.password_attempt)
-        .map_err(|_| AuthenticateUserError::WrongPassword)?;    //check for incorrect password
-
-    // If no errors, then user has been authenticated
-    // Ok(AuthenticateUserResponse)
-    todo!()
-});
+        let room_table = AtrisRoomDBClient::new().await;
+        let room = room_table.get_room(request.room_id).await?;
+        Ok(JoinRoomResponse {
+            room_data: room.room_data,
+        })
+    }
+);

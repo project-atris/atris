@@ -1,8 +1,10 @@
 use argon2::Argon2;
-use atris_common::{authenticate_user::*, Cipher, CipherKey};
+use atris_common::{authenticate_user::*, CipherKey};
 
 use atris_server::{
-    auth_table::AtrisAuthDBClient, run_lambda_http, session_table::{AtrisSessionDBClient, CreateSessionError},
+    auth_table::AtrisAuthDBClient,
+    run_lambda_http,
+    session_table::{AtrisSessionDBClient, CreateSessionError},
 };
 
 run_lambda_http!(

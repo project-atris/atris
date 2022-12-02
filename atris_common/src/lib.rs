@@ -1,4 +1,4 @@
-use std::{fmt::Display, marker::PhantomData, ops::Deref, borrow::Borrow};
+use std::{borrow::Borrow, fmt::Display, marker::PhantomData};
 
 pub use chacha20poly1305::{self as cipher};
 use chacha20poly1305::{
@@ -6,12 +6,12 @@ use chacha20poly1305::{
     AeadCore, ChaCha20Poly1305, Nonce,
 };
 use cipher::KeyInit;
-use serde::{de::Visitor, Deserialize, Serialize, ser::SerializeSeq};
+use serde::{de::Visitor, ser::SerializeSeq, Deserialize, Serialize};
 
 pub mod authenticate_user;
 pub mod create_room;
 pub mod create_user;
-pub mod get_room;
+pub mod join_room;
 pub mod set_room_responder;
 
 pub type Cipher = ChaCha20Poly1305;
@@ -19,7 +19,7 @@ pub type Cipher = ChaCha20Poly1305;
 pub struct CipherKey(cipher::Key);
 
 impl CipherKey {
-    pub fn generate()->Self{
+    pub fn generate() -> Self {
         Cipher::generate_key(&mut OsRng).into()
     }
 }
@@ -67,10 +67,11 @@ impl<'de> Visitor<'de> for CipherKeyVisitor {
     }
 
     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
-        where
-            A: serde::de::SeqAccess<'de>, {
+    where
+        A: serde::de::SeqAccess<'de>,
+    {
         let mut bytes = Vec::new();
-        while let Ok(Some(b)) = seq.next_element::<u8>(){
+        while let Ok(Some(b)) = seq.next_element::<u8>() {
             bytes.push(b)
         }
         Ok((bytes.as_slice()).into())
@@ -82,7 +83,6 @@ impl<'de> Visitor<'de> for CipherKeyVisitor {
     // {
     //     Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
     // }
-
 
     // fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> std::result::Result<Self::Value, E>
     // where
@@ -108,7 +108,7 @@ impl<'de> Deserialize<'de> for CipherKey {
     }
 }
 
-#[derive(Debug,Clone,serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RoomData {
     /// The responder to attatch to to
     pub responder_string: String,
@@ -116,7 +116,7 @@ pub struct RoomData {
     pub symmetric_key: CipherKey,
 }
 
-#[derive(Debug,Clone,serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Encrypted<T> {
     #[serde(with = "serde_bytes")]
     nonce: Vec<u8>,
@@ -127,6 +127,7 @@ pub struct Encrypted<T> {
     #[serde(skip)]
     phantom_data: PhantomData<T>,
 }
+#[derive(Debug)]
 pub enum EncryptionError {
     BincodeError(bincode::Error),
     AEADError(aead::Error),

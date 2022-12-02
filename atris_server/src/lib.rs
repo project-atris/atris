@@ -120,11 +120,11 @@ macro_rules! run_lambda {
         //     Ok(())
         // }
 
-        use lambda_runtime::{service_fn, Error,Service};
+        use lambda_http::Request;
+        use lambda_runtime::{service_fn, Error, Service};
+        use log::LevelFilter;
         use serde_json::{json, Value};
         use std::convert::Infallible;
-        use log::LevelFilter;
-        use lambda_http::Request;
         #[tokio::main]
         async fn main() -> Result<(), Error> {
             tracing_subscriber::fmt()
@@ -142,7 +142,7 @@ macro_rules! run_lambda {
         async fn func_internal($request_name: $request) -> $ret {
             $block
         }
-        async fn handler($request_name: LambdaEvent<Request>) -> Result<String,Infallible> {
+        async fn handler($request_name: LambdaEvent<Request>) -> Result<String, Infallible> {
             let res = func_internal($request_name).await;
         }
     };

@@ -2,17 +2,22 @@ use std::fmt::{Debug, Display};
 
 use atris_common::{
     authenticate_user::{AuthenticateUserError, AuthenticateUserRequest, AuthenticateUserResponse},
-    create_user::{CreateUserError, CreateUserRequest, CreateUserResponse}, Cipher, CipherKey, create_room::{CreateRoomRequest, CreateRoomResponse, CreateRoomError}, set_room_responder::{SetRoomResponderRequest, SetRoomResponderResponse, SetRoomResponderError},
+    create_room::{CreateRoomError, CreateRoomRequest, CreateRoomResponse},
+    create_user::{CreateUserError, CreateUserRequest, CreateUserResponse},
+    join_room::{JoinRoomError, JoinRoomRequest, JoinRoomResponse},
+    set_room_responder::{
+        SetRoomResponderError, SetRoomResponderRequest, SetRoomResponderResponse,
+    },
+    CipherKey,
 };
 
-use bincode::Error;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub use atris_common;
 
+pub mod comms;
 pub mod http_auth;
 pub mod sdk_auth;
-pub mod comms;
 
 /// An error resulting from invoking an Atris Lambda function
 #[derive(Debug)]
@@ -31,12 +36,12 @@ impl<E> From<E> for InvocationError<E> {
         InvocationError::ImplementationError(err)
     }
 }
-impl <E:Debug> Display for InvocationError<E>{
+impl<E: Debug> Display for InvocationError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self, f)
     }
 }
-impl <E:Debug> std::error::Error for InvocationError<E>{
+impl<E: Debug> std::error::Error for InvocationError<E> {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         None
     }
@@ -88,6 +93,22 @@ pub trait AtrisAuthClient {
         payload: &'s P,
     ) -> InvocationResult<R, Self::Error>;
     /// Send the response to create a room on the authentication server
+    async fn join_room(
+        &self,
+        session_id: CipherKey,
+        room_id: u16,
+    ) -> InvocationResult<Result<JoinRoomResponse, JoinRoomError>, Self::Error> {
+        self.invoke_lambda(
+            Self::JOIN_ROOM_FN,
+            &JoinRoomRequest {
+                session_id,
+                room_id,
+            },
+        )
+        .await
+    }
+
+    /// Send the response to create a room on the authentication server
     async fn create_room(
         &self,
         session_id: CipherKey,
@@ -97,7 +118,7 @@ pub trait AtrisAuthClient {
             Self::CREATE_ROOM_FN,
             &CreateRoomRequest {
                 session_id,
-                other_user_name:other_user_name.into(),
+                other_user_name: other_user_name.into(),
             },
         )
         .await
@@ -108,15 +129,16 @@ pub trait AtrisAuthClient {
         room_id: u16,
         session_id: CipherKey,
         other_user_name: &str,
-        responder_str:&str,
-    ) -> InvocationResult<Result<SetRoomResponderResponse, SetRoomResponderError>, Self::Error> {
+        responder_str: &str,
+    ) -> InvocationResult<Result<SetRoomResponderResponse, SetRoomResponderError>, Self::Error>
+    {
         self.invoke_lambda(
             Self::SET_ROOM_RESPONDER_FN,
             &SetRoomResponderRequest {
                 room_id,
                 session_id,
-                other_user_name:other_user_name.into(),
-                responder_string:responder_str.into()
+                other_user_name: other_user_name.into(),
+                responder_string: responder_str.into(),
             },
         )
         .await

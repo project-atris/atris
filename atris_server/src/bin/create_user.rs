@@ -1,5 +1,5 @@
 use argon2::{Argon2, PasswordHasher};
-use atris_common::{create_user::*, Cipher, CipherKey};
+use atris_common::create_user::*;
 use atris_server::{auth_table::AtrisAuthDBClient, run_lambda_http};
 
 use password_hash::SaltString;

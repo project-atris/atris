@@ -67,14 +67,11 @@ impl AtrisAuthClient for AtrisAuth {
     const AUTHENTICATE_USER_FN: Self::FunctionIdentifier =
         "https://y46vbul2oe7qumkca6rkyi7k7a0aixvu.lambda-url.us-west-2.on.aws/";
     #[cfg(not(feature = "local"))]
-    const CREATE_ROOM_FN: Self::FunctionIdentifier =
-        "https:///";
+    const CREATE_ROOM_FN: Self::FunctionIdentifier = "https:///";
     #[cfg(not(feature = "local"))]
-    const JOIN_ROOM_FN: Self::FunctionIdentifier =
-        "https:///";
+    const JOIN_ROOM_FN: Self::FunctionIdentifier = "https:///";
     #[cfg(not(feature = "local"))]
-    const SET_ROOM_RESPONDER_FN: Self::FunctionIdentifier =
-        "https:///";
+    const SET_ROOM_RESPONDER_FN: Self::FunctionIdentifier = "https:///";
 
     async fn invoke_lambda<'s, P: Serialize + Sync, R: DeserializeOwned>(
         &'s self,

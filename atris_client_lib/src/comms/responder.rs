@@ -9,8 +9,8 @@ use anyhow::{Ok, Result};
 
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
-use super::{AtrisChannel, AtrisConnection};
 use super::signal;
+use super::{AtrisChannel, AtrisConnection};
 
 pub struct AtrisResponder {
     connection: AtrisConnection,
@@ -23,7 +23,6 @@ impl AtrisResponder {
         Ok(Self { connection })
     }
 
-
     // pub fn encoded_local_description(&self)->Result<String> {
     //     let json_str = serde_json::to_string(&self.local_description)?;
     //     let b64 = signal::encode(&json_str);
@@ -31,7 +30,10 @@ impl AtrisResponder {
     // }
 
     /// Set the initator's description
-    pub async fn open_channel_with<T>(mut self, offer_str: &String) -> Result<(String,impl Future<Output = Option<AtrisChannel<T>>>)>
+    pub async fn open_channel_with<T>(
+        mut self,
+        offer_str: &String,
+    ) -> Result<(String, impl Future<Output = Option<AtrisChannel<T>>>)>
     where
         T: Serialize + Send + Sync + 'static,
         for<'d> T: Deserialize<'d>,
@@ -41,7 +43,6 @@ impl AtrisResponder {
         let (data_channel_sender, mut data_channel_receiver) =
             tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
         let data_channel_sender = Arc::new(data_channel_sender);
-
 
         // Wait for the offer to be pasted
         let decoded_offer_str = signal::decode(offer_str.as_str())?;
@@ -58,7 +59,6 @@ impl AtrisResponder {
                 data_channel_sender.send(data_channel).await;
             })
         }));
-
 
         // Create an answer
         let answer = peer_connection.create_answer(None).await?;
@@ -84,7 +84,7 @@ impl AtrisResponder {
         // signal::print_in_chunks(&b64);
 
         // println!("Press ctrl-c to stop");
-        Ok((b64,async move{
+        Ok((b64, async move {
             tokio::select! {
                 Some(data_channel) = data_channel_receiver.recv() => {
                     Some(AtrisChannel::new(self.connection, data_channel))
