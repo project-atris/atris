@@ -1,6 +1,5 @@
 use anyhow::Result;
-use std::io::Write;
-use std::io;
+
 use std::sync::Arc;
 use tokio::time::Duration;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -15,11 +14,8 @@ use webrtc::peer_connection::math_rand_alpha;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
-use crate::comms::AtrisConnection;
-use crate::comms::initiator;
 use crate::comms::responder::AtrisResponder;
 use crate::signal;
-use crate::comms;
 
 /*
 In the analogy, the browser produces the first block which you paste in the terminal.
@@ -28,26 +24,23 @@ The terminal then produces a block which you paste back in the browser.
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    
     println!("here");
-    let mut comm = AtrisResponder::new().await?;
+    let comm = AtrisResponder::new().await?;
     println!("here1");
     //let stdin = io::stdin(); // We get `Stdin` here.
     //stdin.read_line(&mut buffer)?;
     let initiator_str = crate::signal::must_read_stdin()?;
     println!("here2");
-    let mut channel = comm.open_channel_with::<String>(&initiator_str).await?;
+    let channel = comm.open_channel_with::<String>(&initiator_str).await?;
     println!("here3");
 
-    channel.io_loop().await?;    
+    channel.io_loop().await?;
     println!("here4");
 
     Ok(())
-
 }
 
 pub async fn original() -> Result<()> {
-
     // Everything below is the WebRTC-rs API! Thanks for using it ❤️.
 
     // Create a MediaEngine object to configure the supported codec
@@ -87,25 +80,19 @@ pub async fn original() -> Result<()> {
 
     // Set the handler for Peer connection state
     // This will notify you when the peer has connected/disconnected
-    peer_connection
-        .on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
-            println!("Peer Connection State has changed: {}", s);
+    peer_connection.on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
+        println!("Peer Connection State has changed: {}", s);
 
-            if s == RTCPeerConnectionState::Failed {
-                // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
-                // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
-                // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-                println!("Peer Connection has gone to failed exiting");
-                let _ = done_tx.try_send(());
-            }
+        if s == RTCPeerConnectionState::Failed {
+            // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
+            // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
+            // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
+            println!("Peer Connection has gone to failed exiting");
+            let _ = done_tx.try_send(());
+        }
 
-            Box::pin(async {})
-        }));
-
-
-
-
-
+        Box::pin(async {})
+    }));
 
     // Register data channel creation handling
     peer_connection

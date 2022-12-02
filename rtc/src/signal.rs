@@ -79,9 +79,9 @@ pub fn must_read_stdin() -> Result<String> {
     println!();
     Ok(line)
 }
-pub fn print_in_chunks(s:&str) {
-    println!("[0]\n{}",&s[0..1023]);
-    println!("[1]\n{}",&s[1023..]);
+pub fn print_in_chunks(s: &str) {
+    println!("[0]\n{}", &s[0..1023]);
+    println!("[1]\n{}", &s[1023..]);
 }
 
 // Allows compressing offer/answer to bypass terminal input limits.

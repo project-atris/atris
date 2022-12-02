@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::Display;
-use std::future::Future;
-use std::pin::Pin;
 
 /// A request to create a user on the atris auth server. The server will respond with a Result<CreateUserResponse,CreateUserError>
 #[derive(Deserialize, Serialize, Debug)]

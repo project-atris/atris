@@ -6,7 +6,7 @@ use webrtc::{
     data_channel::RTCDataChannel, peer_connection::sdp::session_description::RTCSessionDescription,
 };
 
-use crate::signal;
+use super::signal;
 
 use super::{AtrisChannel, AtrisConnection};
 
@@ -64,7 +64,7 @@ impl AtrisInitiator {
         T: Serialize + Send + Sync + 'static,
         for<'d> T: Deserialize<'d>,
     {
-        let decoded_responder_string = crate::signal::decode(responder_string.as_str())?;
+        let decoded_responder_string = signal::decode(responder_string.as_str())?;
         // Convert the json input into a useful datatype
         let responder_description =
             serde_json::from_str::<RTCSessionDescription>(&decoded_responder_string)?;
@@ -77,7 +77,6 @@ impl AtrisInitiator {
 
         // Convert that channel into an AtrisChannel
         let channel = AtrisChannel::new(self.connection, self.data_channel);
-
         Ok(channel)
     }
 }

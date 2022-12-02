@@ -1,7 +1,5 @@
 use anyhow::Result;
-use tokio::io::AsyncReadExt;
-use std::io::Write;
-use std::io;
+
 use std::sync::Arc;
 use tokio::time::Duration;
 use webrtc::api::interceptor_registry::register_default_interceptors;
@@ -15,8 +13,8 @@ use webrtc::peer_connection::math_rand_alpha;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
-use crate::signal;
 use crate::comms;
+use crate::signal;
 
 /*
 In the analogy, this produces the first block which you paste in the browser.
@@ -25,7 +23,7 @@ The browser then produces a block which you paste back in here.
 
 #[tokio::main]
 pub async fn main() -> Result<()> {
-    use comms::{AtrisConnection,initiator::AtrisInitiator};
+    use comms::{initiator::AtrisInitiator, AtrisConnection};
     println!("here");
     let comm = AtrisInitiator::new(AtrisConnection::new().await?).await?;
     println!("here1");
@@ -35,12 +33,12 @@ pub async fn main() -> Result<()> {
     crate::signal::print_in_chunks(&comm.encoded_local_description()?);
     let responder_str = crate::signal::must_read_stdin()?;
     println!("here2");
-    let mut channel = comm.into_channel_with::<String>(&responder_str).await?;
+    let channel = comm.into_channel_with::<String>(&responder_str).await?;
     println!("here3");
 
-    channel.io_loop().await?;    
+    channel.io_loop().await?;
     println!("here4");
-    
+
     Ok(())
     //original().await
 }
@@ -85,31 +83,22 @@ pub async fn original() -> Result<()> {
 
     // Set the handler for Peer connection state
     // This will notify you when the peer has connected/disconnected
-    peer_connection
-        .on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
-            println!("Peer Connection State has changed: {}", s);
+    peer_connection.on_peer_connection_state_change(Box::new(move |s: RTCPeerConnectionState| {
+        println!("Peer Connection State has changed: {}", s);
 
-            if s == RTCPeerConnectionState::Failed {
-                // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
-                // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
-                // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-                println!("Peer Connection has gone to failed exiting");
-                let _ = done_tx.try_send(());
-            }
+        if s == RTCPeerConnectionState::Failed {
+            // Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
+            // Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
+            // Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
+            println!("Peer Connection has gone to failed exiting");
+            let _ = done_tx.try_send(());
+        }
 
-            Box::pin(async {})
-        }));
-
-
-
-
-
-
+        Box::pin(async {})
+    }));
 
     // Create a datachannel with label 'data'
     let data_channel = peer_connection.create_data_channel("data", None).await?;
-
-
 
     // Register channel opening handling
     let d1 = Arc::clone(&data_channel);
@@ -136,12 +125,11 @@ pub async fn original() -> Result<()> {
 
     // Register text message handling
     let d_label = data_channel.label().to_owned();
-    data_channel
-        .on_message(Box::new(move |msg: DataChannelMessage| {
-            let msg_str = String::from_utf8(msg.data.to_vec()).unwrap();
-            println!("Message from DataChannel '{}': '{}'", d_label, msg_str);
-            Box::pin(async {})
-        }));
+    data_channel.on_message(Box::new(move |msg: DataChannelMessage| {
+        let msg_str = String::from_utf8(msg.data.to_vec()).unwrap();
+        println!("Message from DataChannel '{}': '{}'", d_label, msg_str);
+        Box::pin(async {})
+    }));
 
     // Create an offer to send to the browser
     let offer = peer_connection.create_offer(None).await?;

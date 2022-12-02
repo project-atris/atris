@@ -1,6 +1,6 @@
+mod compress;
 mod initiator;
 mod responder;
-mod compress;
 mod signal;
 mod symmetric;
 mod symmetric_provided;
@@ -9,7 +9,6 @@ mod comms;
 //mod client_new;
 
 use clap::{arg, command};
-
 
 #[macro_use]
 extern crate lazy_static;
@@ -55,7 +54,13 @@ fn main() {
         ))
         .get_matches(); // run clap, can be omitted to save layout to a variable
 
-    let options = vec!["initiator", "responder", "compress", "symmetric", "symmetric_provided"];
+    let options = vec![
+        "initiator",
+        "responder",
+        "compress",
+        "symmetric",
+        "symmetric_provided",
+    ];
     let mut found = false;
 
     for option in options.iter() {
@@ -63,18 +68,28 @@ fn main() {
             match *option {
                 // "initiator" => {initiator::original().await;},
                 // "responder" => {responder::original().await;},
-                "initiator" => {initiator::main().expect("Initiator err");},
-                "responder" => {responder::main().expect("Responder err");},
-                "compress" => {compress::main();},
-                "symmetric" => {symmetric::main();},
-                "symmetric_provided" => {symmetric_provided::main();},
-                _ => {},
+                "initiator" => {
+                    initiator::main().expect("Initiator err");
+                }
+                "responder" => {
+                    responder::main().expect("Responder err");
+                }
+                "compress" => {
+                    compress::main();
+                }
+                "symmetric" => {
+                    symmetric::main();
+                }
+                "symmetric_provided" => {
+                    symmetric_provided::main();
+                }
+                _ => {}
             }
             found = true;
             break;
         }
     }
-    
+
     if !found {
         println!("No valid flag provided");
     }

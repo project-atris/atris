@@ -1,17 +1,15 @@
 use async_trait::async_trait;
-use atris_common::{
-    authenticate_user::{AuthenticateUserError, AuthenticateUserRequest, AuthenticateUserResponse},
-    create_user::{CreateUserError, CreateUserRequest, CreateUserResponse}, REGION,
-};
+use atris_common::REGION;
+use aws_config::meta::region::RegionProviderChain;
 use aws_sdk_lambda::{
     error::InvokeError,
+    output::InvokeOutput,
     types::{Blob, SdkError},
-    Client, client::fluent_builders::Invoke, output::InvokeOutput,
+    Client,
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use aws_config::meta::region::RegionProviderChain;
+use serde::{de::DeserializeOwned, Serialize};
 
-use crate::{AtrisAuthClient, InvocationResult, InvocationError};
+use crate::{AtrisAuthClient, InvocationError, InvocationResult};
 
 /// The API of the Atris authentication server, implemented using the AWS sdk
 /// This bundles all of the functions necessary for user creation and authentication, as well as initiating the key exchange
@@ -44,26 +42,29 @@ impl AtrisAuthSDK {
     }
 }
 #[async_trait]
-impl AtrisAuthClient for AtrisAuthSDK{
+impl AtrisAuthClient for AtrisAuthSDK {
     type Error = SdkError<InvokeError>;
     type FunctionIdentifier = &'static str;
 
-    type BaseResponse=InvokeOutput;
+    type BaseResponse = InvokeOutput;
 
-
-    const CREATE_USER_FN:Self::FunctionIdentifier = "CreateUser";
-    const AUTHENTICATE_USER_FN:Self::FunctionIdentifier = "AuthenticateUser";
-    async fn invoke_lambda<'s, P: Serialize+Sync, R:DeserializeOwned>(
+    const CREATE_USER_FN: Self::FunctionIdentifier = "CreateUser";
+    const AUTHENTICATE_USER_FN: Self::FunctionIdentifier = "AuthenticateUser";
+    const CREATE_ROOM_FN: Self::FunctionIdentifier = "CreateRoom";
+    const SET_ROOM_RESPONDER_FN: Self::FunctionIdentifier = "SetRoomResponder";
+    const JOIN_ROOM_FN: Self::FunctionIdentifier = "JoinRoom";
+    async fn invoke_lambda<'s, P: Serialize + Sync, R: DeserializeOwned>(
         &'s self,
         lambda_function_name: Self::FunctionIdentifier,
         payload: &'s P,
-    ) -> InvocationResult<R,Self::Error>{
+    ) -> InvocationResult<R, Self::Error> {
         // Invoke the lambda function with the provided name and payload
-        
+
         // Write the input payload to json using `serde_json`
         let serialized_payload =
             serde_json::to_string(payload).map_err(InvocationError::SerializationError)?;
-        let response = self.client
+        let response = self
+            .client
             .invoke()
             .payload(Blob::new(serialized_payload))
             .function_name(lambda_function_name)
@@ -80,4 +81,3 @@ impl AtrisAuthClient for AtrisAuthSDK{
         serde_json::from_str(&serialized_response).map_err(InvocationError::DeserializationError)
     }
 }
-

@@ -1,11 +1,9 @@
-use std::string::FromUtf8Error;
-
 use chacha20poly1305::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
-    ChaCha20Poly1305, Nonce
+    ChaCha20Poly1305, Nonce,
 };
 
-pub fn main(){
+pub fn main() {
     // User 1
     let key = ChaCha20Poly1305::generate_key(&mut OsRng);
     let mut cipher = ChaCha20Poly1305::new(&key);
@@ -17,13 +15,13 @@ There really is a Linux, and these people are using it, but it is just a part of
     let serialized_message = bincode::serialize(&message_encrypted).expect("Serialization error");
     println!("====================================");
     // User 2
-    let deserialized_encrypted_message = bincode::deserialize(&serialized_message).expect("Deserialization error");
+    let deserialized_encrypted_message =
+        bincode::deserialize(&serialized_message).expect("Deserialization error");
     let plaintext = decrypt(deserialized_encrypted_message, &mut cipher).unwrap();
     println!("Received {:?}", plaintext);
 }
 
-
-#[derive(Debug,serde::Serialize,serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct EncryptedBytes {
     #[serde(with = "serde_bytes")]
     nonce: Vec<u8>,
@@ -31,13 +29,22 @@ pub struct EncryptedBytes {
     cipher_bytes: Vec<u8>,
 }
 
-fn encrypt<S:AsRef<[u8]>>(plain_bytes: S, cipher: &mut ChaCha20Poly1305) -> aead::Result<EncryptedBytes> {
+fn encrypt<S: AsRef<[u8]>>(
+    plain_bytes: S,
+    cipher: &mut ChaCha20Poly1305,
+) -> aead::Result<EncryptedBytes> {
     let nonce = ChaCha20Poly1305::generate_nonce(&mut OsRng); // 96-bits; unique per message
     let cipher_bytes = cipher.encrypt(&nonce, plain_bytes.as_ref())?;
-    Ok(EncryptedBytes { nonce: nonce.to_vec(), cipher_bytes })
+    Ok(EncryptedBytes {
+        nonce: nonce.to_vec(),
+        cipher_bytes,
+    })
 }
 
-fn decrypt(encrypted_bytes: EncryptedBytes, cipher: &mut ChaCha20Poly1305) -> aead::Result<Vec<u8>> {
+fn decrypt(
+    encrypted_bytes: EncryptedBytes,
+    cipher: &mut ChaCha20Poly1305,
+) -> aead::Result<Vec<u8>> {
     // let nonce_new: Nonce = (&c.nonce).into_iter().cloned().collect();
     let nonce: Nonce = encrypted_bytes.nonce.into_iter().collect();
     let plain_bytes: Vec<u8> = cipher.decrypt(&nonce, encrypted_bytes.cipher_bytes.as_ref())?;

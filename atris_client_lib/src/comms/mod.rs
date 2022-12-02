@@ -4,7 +4,6 @@ use std::sync::Arc;
 use tokio::io::AsyncReadExt;
 use tokio::sync::mpsc::error::{SendError, TryRecvError};
 
-use hyper::body::Bytes;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{Receiver, Sender};
 use webrtc::data_channel::RTCDataChannel;
@@ -24,6 +23,7 @@ pub(self) type Message = String;
 
 pub mod initiator;
 pub mod responder;
+pub mod signal;
 
 /// Datatype that handles communication between two clients
 pub struct AtrisConnection {
@@ -125,8 +125,7 @@ where
                     // Send the next outgoing message and record the result
                     if let Result::Ok(msg) = bincode::serialize::<T>(&next_message) {
                         // incoming_sender.blocking_send(&msg);
-                        let bytes = Bytes::from(msg);
-                        result = arc_data_channel.send(&bytes).await.map_err(Into::into);
+                        result = arc_data_channel.send(&msg.into()).await.map_err(Into::into);
                     }
                     // unimplemented!("Sending messages");
                     // result = arc_data_channel.send(next_message).await.map_err(Into::into);

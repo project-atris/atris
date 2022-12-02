@@ -1,9 +1,7 @@
 use argon2::Argon2;
-use atris_common::{authenticate_user::*, Cipher, CipherKey};
+use atris_common::authenticate_user::*;
 
-use atris_server::{
-    auth_table::AtrisAuthDBClient, run_lambda_http, session_table::{AtrisSessionDBClient, CreateSessionError},
-};
+use atris_server::{auth_table::AtrisAuthDBClient, run_lambda_http};
 
 run_lambda_http!(
     |request:Request<AuthenticateUserRequest>|->Result<AuthenticateUserResponse, AuthenticateUserError> {
@@ -11,8 +9,8 @@ run_lambda_http!(
     let (_,request) = request.into_parts();
 
     // Retrieve user from database
-    let auth_client = AtrisAuthDBClient::new().await;
-    let user = auth_client
+    let client = AtrisAuthDBClient::new().await;
+    let user = client
         .get_user(request.username.clone())
         .await? //return any database errors
         .ok_or(AuthenticateUserError::UnknownUsername(request.username.clone()))?;  //return user doesn't exist error
@@ -23,12 +21,7 @@ run_lambda_http!(
         .verify_password(&[&Argon2::default()], request.password_attempt)
         .map_err(|_| AuthenticateUserError::WrongPassword)?;    //check for incorrect password
 
-    // If no errors, then user has been authenticated, create session
-    let session_client = AtrisSessionDBClient::new().await;
-    let session_id = CipherKey::generate();
-    session_client.create_session(session_id.clone(), request.username, request.initiator).await.map_err(|e|match e {
-        CreateSessionError::DuplicateSession(_) => todo!(),
-        CreateSessionError::DatabaseWriteError => AuthenticateUserError::DatabaseWrite,
-    })?;
-    Ok(AuthenticateUserResponse{session_id})
+    // If no errors, then user has been authenticated
+    // Ok(AuthenticateUserResponse)
+    todo!()
 });

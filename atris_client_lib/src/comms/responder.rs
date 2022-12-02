@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use anyhow::{Ok, Result};
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
 use super::{AtrisChannel, AtrisConnection};
+use super::signal;
 
 pub struct AtrisResponder {
     connection: AtrisConnection,
@@ -17,8 +19,10 @@ pub struct AtrisResponder {
 impl AtrisResponder {
     pub async fn new() -> Result<Self> {
         let connection = AtrisConnection::new().await?;
+
         Ok(Self { connection })
     }
+
 
     // pub fn encoded_local_description(&self)->Result<String> {
     //     let json_str = serde_json::to_string(&self.local_description)?;
@@ -27,7 +31,7 @@ impl AtrisResponder {
     // }
 
     /// Set the initator's description
-    pub async fn open_channel_with<T>(mut self, offer_str: &String) -> Result<AtrisChannel<T>>
+    pub async fn open_channel_with<T>(mut self, offer_str: &String) -> Result<(String,impl Future<Output = Option<AtrisChannel<T>>>)>
     where
         T: Serialize + Send + Sync + 'static,
         for<'d> T: Deserialize<'d>,
@@ -37,25 +41,27 @@ impl AtrisResponder {
         let (data_channel_sender, mut data_channel_receiver) =
             tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
         let data_channel_sender = Arc::new(data_channel_sender);
+
+
+        // Wait for the offer to be pasted
+        let decoded_offer_str = signal::decode(offer_str.as_str())?;
+        let offer = serde_json::from_str::<RTCSessionDescription>(&decoded_offer_str)?;
+
+        // Set the remote SessionDescription
+        peer_connection.set_remote_description(offer).await?;
+
         // Register data channel creation handling
         peer_connection.on_data_channel(Box::new(move |data_channel: Arc<RTCDataChannel>| {
+            dbg!("Oh me, me, I have a data channel!");
             let data_channel_sender = Arc::clone(&data_channel_sender);
             Box::pin(async move {
                 data_channel_sender.send(data_channel).await;
             })
         }));
 
-        // Wait for the offer to be pasted
-        dbg!(&offer_str);
-        let decoded_offer_str = crate::signal::decode(offer_str.as_str())?;
-        dbg!(&decoded_offer_str);
-        let offer = serde_json::from_str::<RTCSessionDescription>(&decoded_offer_str)?;
-
-        // Set the remote SessionDescription
-        dbg!(peer_connection.set_remote_description(offer).await)?;
 
         // Create an answer
-        let answer = dbg!(peer_connection.create_answer(None).await)?;
+        let answer = peer_connection.create_answer(None).await?;
 
         // Create channel that is blocked until ICE Gathering is complete
         let mut gather_complete = peer_connection.gathering_complete_promise().await;
@@ -70,25 +76,35 @@ impl AtrisResponder {
 
         // Output the answer in base64 so we can paste it in browser
         // -- no, just print the thing normally --
-        if let Some(local_desc) = peer_connection.local_description().await {
-            let json_str = serde_json::to_string(&local_desc)?;
-            let b64 = crate::signal::encode(&json_str);
-            println!("Responder:");
-            crate::signal::print_in_chunks(&b64);
-        } else {
-            println!("generate local_description failed!");
-        }
+        let Some(local_desc) = peer_connection.local_description().await else {
+            panic!("generate local_description failed!");
+        };
+        let json_str = serde_json::to_string(&local_desc)?;
+        let b64 = signal::encode(&json_str);
+        // signal::print_in_chunks(&b64);
 
         // println!("Press ctrl-c to stop");
-        tokio::select! {
-            Some(data_channel) = data_channel_receiver.recv() => {
-                Ok(AtrisChannel::new(self.connection, data_channel))
+        Ok((b64,async move{
+            tokio::select! {
+                Some(data_channel) = data_channel_receiver.recv() => {
+                    Some(AtrisChannel::new(self.connection, data_channel))
+                }
+                _ = self.connection.done_reciever.recv() => {
+                    None
+                }
+                else => {
+                    panic!("Test")
+                }
             }
-            else => {
-                panic!("Test")
-                // Err(())
-            }
-        }
+        }))
+        // tokio::select! {
+        //     Some(data_channel) = data_channel_receiver.recv() => {
+        //         Ok())
+        //     }
+        //     else => {
+        //         panic!("Test")
+        //     }
+        // }
     }
 }
 

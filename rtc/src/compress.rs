@@ -1,31 +1,33 @@
 use flate2::Compression;
 //use flate2::write::ZlibEncoder;
-use flate2::write::{GzEncoder, ZlibEncoder, DeflateEncoder};
-use flate2::read::{GzDecoder, ZlibDecoder, DeflateDecoder};
-use std::io::prelude::*;
-use std::fs;
 use crate::signal;
+use flate2::read::GzDecoder;
+use flate2::write::{DeflateEncoder, GzEncoder, ZlibEncoder};
+use std::fs;
+use std::io::prelude::*;
 use std::str;
 
 pub fn main() {
     let list = [
-        "basic",
-        "short_1",
-        "short_19",
-        "short_20",
-        "short_25",
-        "short_30",
-        "medium",
-        "medium1",
-        "long",
-        "random",
+        "basic", "short_1", "short_19", "short_20", "short_25", "short_30", "medium", "medium1",
+        "long", "random",
     ];
 
     //for name in std::array::IntoIter::into_iter(list) {
-    for name in list.into_iter() { // Note: You could probably get it to work nicer using this: `fs::read_dir("./texts")`
+    for name in list.into_iter() {
+        // Note: You could probably get it to work nicer using this: `fs::read_dir("./texts")`
         // raw
-        let raw = read_file(&["/home/terrior/Programming/atris/rtc/texts/text_", name, ".txt"].join(""));
-        let braw = signal::encode(&String::from_utf8(raw.clone()).unwrap()).as_bytes().to_vec();
+        let raw = read_file(
+            &[
+                "/home/terrior/Programming/atris/rtc/texts/text_",
+                name,
+                ".txt",
+            ]
+            .join(""),
+        );
+        let braw = signal::encode(&String::from_utf8(raw.clone()).unwrap())
+            .as_bytes()
+            .to_vec();
 
         // gzip
         let com_g = compress_g(raw.clone());
@@ -39,7 +41,16 @@ pub fn main() {
         let com_d = compress_d(raw.clone());
         let bcom_d = compress_d(braw.clone());
 
-        let lens = [raw.len(), braw.len(), com_g.len(), bcom_g.len(), com_z.len(), bcom_z.len(), com_d.len(), bcom_d.len()];
+        let lens = [
+            raw.len(),
+            braw.len(),
+            com_g.len(),
+            bcom_g.len(),
+            com_z.len(),
+            bcom_z.len(),
+            com_d.len(),
+            bcom_d.len(),
+        ];
         let cur_len = *lens.iter().min().unwrap();
 
         println!("-- READING: text_{}.txt --", name);
@@ -51,7 +62,8 @@ pub fn main() {
         println!("Zlib_B64: {:?}", lens[5]);
         println!("DEFL_RAW: {:?}", lens[6]);
         println!("DEFL_B64: {:?}", lens[7]);
-        println!("-->{}\n",
+        println!(
+            "-->{}\n",
             if cur_len == lens[0] {
                 "RAW"
             } else if cur_len == lens[1] {
@@ -69,14 +81,12 @@ pub fn main() {
             } else {
                 "DEFL_B64"
             }
-            
         );
     }
 }
 
 fn read_file(target: &str) -> Vec<u8> {
-    fs::read(target)
-        .expect("Should have been able to read the file")
+    fs::read(target).expect("Should have been able to read the file")
 }
 
 fn compress_g(inp: Vec<u8>) -> Vec<u8> {
