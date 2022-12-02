@@ -49,12 +49,13 @@ impl Serialize for CipherKey {
     where
         S: serde::Serializer,
     {
-        let bytes = &*self.0;
-        let mut a = serializer.serialize_seq(Some(bytes.len()))?;
-        for b in bytes {
-            a.serialize_element(b)?;
-        }
-        a.end()
+        // let bytes = &*self.0;
+        // let mut a = serializer.serialize_seq(Some(bytes.len()))?;
+        // for b in bytes {
+        //     a.serialize_element(b)?;
+        // }
+        // a.end()
+        serializer.serialize_bytes(self.as_ref())
     }
 }
 
@@ -77,26 +78,26 @@ impl<'de> Visitor<'de> for CipherKeyVisitor {
         Ok((bytes.as_slice()).into())
     }
 
-    // fn visit_bytes<E>(self, v: &[u8]) -> std::result::Result<Self::Value, E>
-    // where
-    //     E: serde::de::Error,
-    // {
-    //     Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
-    // }
+    fn visit_bytes<E>(self, v: &[u8]) -> std::result::Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
+    }
 
-    // fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> std::result::Result<Self::Value, E>
-    // where
-    //     E: serde::de::Error,
-    // {
-    //     Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
-    // }
+    fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> std::result::Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
+    }
 
-    // fn visit_byte_buf<E>(self, v: Vec<u8>) -> std::result::Result<Self::Value, E>
-    // where
-    //     E: serde::de::Error,
-    // {
-    //     Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
-    // }
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> std::result::Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(CipherKey(cipher::Key::clone_from_slice(&v)))
+    }
 }
 
 impl<'de> Deserialize<'de> for CipherKey {

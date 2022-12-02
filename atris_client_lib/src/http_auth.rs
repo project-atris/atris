@@ -79,7 +79,7 @@ impl AtrisAuthClient for AtrisAuth {
         payload: &'s P,
     ) -> InvocationResult<R, Self::Error> {
         // Get the payload as a `String`
-        dbg!(lambda_function_url);
+        // dbg!(lambda_function_url);
         Ok(self
             .client
             .post(lambda_function_url)

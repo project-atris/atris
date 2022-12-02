@@ -23,7 +23,9 @@ run_lambda_http!(
 
         let room_table = AtrisRoomDBClient::new().await;
 
-        let mut cipher = ChaCha20Poly1305::new(other_session.session_id.borrow());
+        let borrowed_key = other_session.session_id.borrow();
+        dbg!(&borrowed_key);
+        let mut cipher = ChaCha20Poly1305::new(borrowed_key);
 
         let room_symmetric_key = CipherKey::generate();
 

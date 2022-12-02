@@ -7,6 +7,15 @@ edition = "2021"
 name = "initiator"
 path = "src/initiator.rs"
 
+
+[[example]]
+name = "initiator_lite"
+path = "src/initiator_lite.rs"
+
+[[example]]
+name = "responder_lite"
+path = "src/responder_lite.rs"
+
 [[example]]
 name = "responder"
 path = "src/responder.rs"

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::Result;
 // use hyper::service::{make_service_fn, service_fn};
 // use hyper::{Body, Method, Request, Response, Server, StatusCode};
@@ -61,6 +63,12 @@ use anyhow::Result;
 //     sdp_chan_rx
 // }
 
+pub fn read_in_line() -> Result<String> {
+    let mut line = String::new();
+    let num_read = std::io::stdin().read_line(&mut line)?;
+    Ok(line.trim().to_string())
+}
+
 /// must_read_stdin blocks until input is received from stdin
 pub fn must_read_stdin() -> Result<String> {
     let mut line = String::new();
@@ -104,4 +112,11 @@ pub fn decode(s: &str) -> Result<String> {
 
     let s = String::from_utf8(b)?;
     Ok(s)
+}
+
+pub fn flush_out<T:Display>(t:&T){
+    use std::io::Write;
+    let mut out = std::io::stdout();
+    writeln!(out,"{}",t);
+    out.flush();
 }

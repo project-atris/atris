@@ -41,19 +41,19 @@ impl AtrisResponder {
         let peer_connection = &mut self.connection.connection;
 
         let (data_channel_sender, mut data_channel_receiver) =
-            tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
+            // tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
+            tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(10);
         let data_channel_sender = Arc::new(data_channel_sender);
 
         // Wait for the offer to be pasted
         let decoded_offer_str = signal::decode(offer_str.as_str())?;
         let offer = serde_json::from_str::<RTCSessionDescription>(&decoded_offer_str)?;
-
+        
         // Set the remote SessionDescription
         peer_connection.set_remote_description(offer).await?;
 
         // Register data channel creation handling
         peer_connection.on_data_channel(Box::new(move |data_channel: Arc<RTCDataChannel>| {
-            dbg!("Oh me, me, I have a data channel!");
             let data_channel_sender = Arc::clone(&data_channel_sender);
             Box::pin(async move {
                 data_channel_sender.send(data_channel).await;
@@ -81,30 +81,14 @@ impl AtrisResponder {
         };
         let json_str = serde_json::to_string(&local_desc)?;
         let b64 = signal::encode(&json_str);
-        // signal::print_in_chunks(&b64);
 
-        // println!("Press ctrl-c to stop");
         Ok((b64, async move {
-            tokio::select! {
-                Some(data_channel) = data_channel_receiver.recv() => {
-                    Some(AtrisChannel::new(self.connection, data_channel))
-                }
-                _ = self.connection.done_reciever.recv() => {
-                    None
-                }
-                else => {
-                    panic!("Test")
-                }
+            let data_channel = data_channel_receiver.recv().await;
+            match data_channel {
+                Some(data_channel)=>Some(AtrisChannel::new(self.connection, data_channel)),
+                _=>None
             }
         }))
-        // tokio::select! {
-        //     Some(data_channel) = data_channel_receiver.recv() => {
-        //         Ok())
-        //     }
-        //     else => {
-        //         panic!("Test")
-        //     }
-        // }
     }
 }
 

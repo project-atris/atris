@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::io::stdin;
+use std::io::{stdin, Write};
 
 use atris_client_lib::atris_common::cipher::KeyInit;
 use atris_client_lib::atris_common::{
@@ -31,20 +31,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let (intitator, client, session) = for_user("terrior", "password").await?;
 
     print!("Please provide the room key: ");
+    std::io::stdout().flush();
     let room_key = stdin().lines().next().ok_or("No terminal input!")??;
     let room_id: u16 = room_key.parse()?;
-    //let room = dbg!(terrior2
-    //    .create_room(terrior2_session.session_id.clone(), "terrior").await)??;
 
     let mut cipher = ChaCha20Poly1305::new(session.session_id.borrow());
     let join_room_response = client.join_room(session.session_id, room_id).await??;
-
     let room_data = join_room_response.room_data.decrypt(&mut cipher).unwrap();
 
     let channel = intitator
         .into_channel_with::<String>(&room_data.responder_string)
         .await?;
 
-    channel.io_loop();
+    channel.io_loop().await;
     Ok(())
 }

@@ -53,10 +53,14 @@ impl AtrisInitiator {
         }
     }
 
+    pub async fn close(self)->Result<(),webrtc::Error>{
+        self.connection.connection.close().await
+    }
+
     pub fn encoded_local_description(&self) -> Result<String> {
         let json_str = serde_json::to_string(&self.local_description)?;
-        let b64 = signal::encode(dbg!(&json_str));
-        Ok(dbg!(b64))
+        let b64 = signal::encode(&json_str);
+        Ok(b64)
     }
     /// If we created an initiator, feed the responder's response here
     pub async fn into_channel_with<T>(self, responder_string: &String) -> Result<AtrisChannel<T>>
@@ -68,6 +72,7 @@ impl AtrisInitiator {
         // Convert the json input into a useful datatype
         let responder_description =
             serde_json::from_str::<RTCSessionDescription>(&decoded_responder_string)?;
+        // dbg!(&responder_description);
 
         // Apply the answer as the remote description
         self.connection

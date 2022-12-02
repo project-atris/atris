@@ -37,25 +37,25 @@ impl AtrisResponder {
         let (data_channel_sender, mut data_channel_receiver) =
             tokio::sync::mpsc::channel::<Arc<RTCDataChannel>>(1);
         let data_channel_sender = Arc::new(data_channel_sender);
+
+        // Wait for the offer to be pasted
+        let decoded_offer_str = crate::signal::decode(offer_str.as_str())?;
+        let offer = serde_json::from_str::<RTCSessionDescription>(&decoded_offer_str)?;
+
+        // Set the remote SessionDescription
+        peer_connection.set_remote_description(offer).await?;
+
         // Register data channel creation handling
         peer_connection.on_data_channel(Box::new(move |data_channel: Arc<RTCDataChannel>| {
+            dbg!("Oh me, me, I have a data channel!");
             let data_channel_sender = Arc::clone(&data_channel_sender);
             Box::pin(async move {
                 data_channel_sender.send(data_channel).await;
             })
         }));
 
-        // Wait for the offer to be pasted
-        dbg!(&offer_str);
-        let decoded_offer_str = crate::signal::decode(offer_str.as_str())?;
-        dbg!(&decoded_offer_str);
-        let offer = serde_json::from_str::<RTCSessionDescription>(&decoded_offer_str)?;
-
-        // Set the remote SessionDescription
-        dbg!(peer_connection.set_remote_description(offer).await)?;
-
         // Create an answer
-        let answer = dbg!(peer_connection.create_answer(None).await)?;
+        let answer = peer_connection.create_answer(None).await?;
 
         // Create channel that is blocked until ICE Gathering is complete
         let mut gather_complete = peer_connection.gathering_complete_promise().await;
