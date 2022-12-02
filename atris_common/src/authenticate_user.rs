@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt::Display;
 
+use crate::CipherKey;
+
 /// A request to authenticate a user on the atris auth server. The server will respond with a Result<AuthenticateUserResponse,AuthenticateUserError>
 #[derive(Deserialize, Serialize, Debug)]
 pub struct AuthenticateUserRequest {
@@ -10,12 +12,16 @@ pub struct AuthenticateUserRequest {
     /// The password the user attempted to enter, which is transferred unhashed and unsalted
     /// - Note: This is common practice as long as the connection is encrypted
     pub password_attempt: String,
+    /// The initiator WebRTC string, which we pass to other users
+    pub initiator: String,
 }
 
 /// A successful response to a [`AuthenticateUserRequest`] on the atris auth server.
 ///  - For error response, see [`AuthenticateUserError`]
 #[derive(Deserialize, Serialize, Debug)]
-pub struct AuthenticateUserResponse; // TODO: Add some sort of authentication ticket
+pub struct AuthenticateUserResponse {
+    pub session_id: CipherKey,
+}
 
 /// A response to a [`AuthenticateUserRequest`] on the atris auth server. For success response, see [`AuthenticateUserResponse`]
 #[derive(Deserialize, Serialize, Debug)]

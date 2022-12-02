@@ -1,0 +1,80 @@
+Crate lzma
+[−]
+
+This crate provides a simple interface to liblzma. LZMA is more commonly known as XZ or 7zip, (as in, files with the .xz or .7z file extension). LZMA compression is fast and aggressive, compressing better than bzip2. liblzma implements the XZ variant, so it can read and write .xz files/streams.
+
+Two interfaces are provided. LzmaReader/LzmaWriter are generic Readers and Writers that can be composed with other Read/Write interfaces. For example, wrap them around a File and you can write data to a file while compressing it on the fly, or stream in an xz file from disk.
+
+compress/decompress are easy to use functions for simple use cases.
+
+See the LzmaReader and LzmaWriter documentation for further details on that interface. compress and decompress are documented here.
+Examples
+
+let test_string = "Like tears in rain";
+let mut compressed = lzma::compress(test_string.as_bytes(), 6).unwrap();
+let decompressed = lzma::decompress(&mut compressed).unwrap();
+let decompressed_str = String::from_utf8(decompressed).unwrap();
+
+assert_eq!(test_string, decompressed_str);
+
+Re-exports
+pub use reader::LzmaReader;
+pub use writer::LzmaWriter;
+pub use error::LzmaError;
+Modules
+error	
+reader	
+
+This module implements LzmaReader.
+writer	
+
+This module implements LzmaWriter.
+Enums
+Direction	
+Constants
+EXTREME_PRESET	
+Functions
+compress	
+
+Compress buf and return the result.
+decompress	
+
+Decompress buf and return the result.
+
+
+
+
+Overview
+
+LZMA uses a dictionary compression algorithm (a variant of LZ77 with huge dictionary sizes and special support for repeatedly used match distances), whose output is then encoded with a range encoder, using a complex model to make a probability prediction of each bit. The dictionary compressor finds matches using sophisticated dictionary data structures, and produces a stream of literal symbols and phrase references, which is encoded one bit at a time by the range encoder: many encodings are possible, and a dynamic programming algorithm is used to select an optimal one under certain approximations.[7]
+
+Prior to LZMA, most encoder models were purely byte-based (i.e. they coded each bit using only a cascade of contexts to represent the dependencies on previous bits from the same byte). The main innovation of LZMA is that instead of a generic byte-based model, LZMA's model uses contexts specific to the bitfields in each representation of a literal or phrase: this is nearly as simple as a generic byte-based model, but gives much better compression because it avoids mixing unrelated bits together in the same context. Furthermore, compared to classic dictionary compression (such as the one used in zip and gzip formats), the dictionary sizes can be and usually are much larger, taking advantage of the large amount of memory available on modern systems.[7]
+Compressed format overview
+
+In LZMA compression, the compressed stream is a stream of bits, encoded using an adaptive binary range coder. The stream is divided into packets, each packet describing either a single byte, or an LZ77 sequence with its length and distance implicitly or explicitly encoded. Each part of each packet is modeled with independent contexts, so the probability predictions for each bit are correlated with the values of that bit (and related bits from the same field) in previous packets of the same type. Both the lzip[8] and the LZMA SDK documentation describes this stream format.[7]
+
+There are 7 types of packets:[8]
+Packed code (bit sequence) 	Packet name 	Packet description
+0 + byteCode 	LIT 	A single byte encoded using an adaptive binary range coder.
+1+0 + len + dist 	MATCH 	A typical LZ77 sequence describing sequence length and distance.
+1+1+0+0 	SHORTREP 	A one-byte LZ77 sequence. Distance is equal to the last used LZ77 distance.
+1+1+0+1 + len 	LONGREP[0] 	An LZ77 sequence. Distance is equal to the last used LZ77 distance.
+1+1+1+0 + len 	LONGREP[1] 	An LZ77 sequence. Distance is equal to the second last used LZ77 distance.
+1+1+1+1+0 + len 	LONGREP[2] 	An LZ77 sequence. Distance is equal to the third last used LZ77 distance.
+1+1+1+1+1 + len 	LONGREP[3] 	An LZ77 sequence. Distance is equal to the fourth last used LZ77 distance.
+
+LONGREP[*] refers to LONGREP[0-3] packets, *REP refers to both LONGREP and SHORTREP, and *MATCH refers to both MATCH and *REP.
+
+LONGREP[n] packets remove the distance used from the list of the most recent distances and reinsert it at the front, to avoid useless repeated entry, while MATCH just adds the distance to the front even if already present in the list and SHORTREP and LONGREP[0] don't alter the list.
+
+The length is encoded as follows:
+Length code (bit sequence) 	Description
+0+ 3 bits 	The length encoded using 3 bits, gives the lengths range from 2 to 9.
+1+0+ 3 bits 	The length encoded using 3 bits, gives the lengths range from 10 to 17.
+1+1+ 8 bits 	The length encoded using 8 bits, gives the lengths range from 18 to 273.
+
+As in LZ77, the length is not limited by the distance, because copying from the dictionary is defined as if the copy was performed byte by byte, keeping the distance constant.
+
+Distances are logically 32-bit and distance 0 points to the most recently added byte in the dictionary.
+
+The distance encoding starts with a 6-bit "distance slot", which determines how many further bits are needed. Distances are decoded as a binary concatenation of, from most to least significant, two bits depending on the distance slot, some bits encoded with fixed 0.5 probability, and some context encoded bits, according to the following table (distance slots 0−3 directly encode distances 0−3). 
