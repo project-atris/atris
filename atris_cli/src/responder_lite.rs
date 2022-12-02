@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use atris_client_lib::atris_common::authenticate_user::AuthenticateUserResponse;
 use atris_client_lib::atris_common::cipher::{ChaCha20Poly1305, KeyInit};
-use atris_client_lib::comms;
+use atris_client_lib::comms::{self, AtrisChannel};
 use atris_client_lib::comms::responder::AtrisResponder;
 use atris_client_lib::comms::{initiator::AtrisInitiator, AtrisConnection};
 use atris_client_lib::{http_auth::AtrisAuth, AtrisAuthClient};
@@ -39,9 +39,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let responder_str = "";//atris_client_lib::comms::signal::must_read_stdin()?;
     let room_code = comms::signal::read_in_line()?;// atris_client_lib::comms::signal::must_read_stdin()?;
     let room_id: u16 = room_code.parse()?;
-    let mut cipher = ChaCha20Poly1305::new(session.session_id.borrow());
+    let mut session_cipher = session.session_id.as_cipher();
     let join_room_response = client.join_room(session.session_id, room_id).await??;
-    let room_data = join_room_response.room_data.decrypt(&mut cipher).unwrap();
+    let room_data = join_room_response.room_data.decrypt(&mut session_cipher).unwrap();
 
     if responder_str == room_data.responder_string {
         println!("Same resp!")
@@ -50,7 +50,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!("Diff resp!")
     }
     
-    let channel = initiator.into_channel_with::<String>(&room_data.responder_string).await?;
+    let parts = initiator.into_channel_parts_with::<String>(&room_data.responder_string).await?;
+    let channel = AtrisChannel::new(parts, room_data.symmetric_key.as_cipher());
     println!("Starting loop: ");
 
     channel.io_loop().await?;

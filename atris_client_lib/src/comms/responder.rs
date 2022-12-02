@@ -9,7 +9,7 @@ use anyhow::{Ok, Result};
 
 use webrtc::peer_connection::sdp::session_description::RTCSessionDescription;
 
-use super::signal;
+use super::{signal, AtrisChannelParts};
 use super::{AtrisChannel, AtrisConnection};
 
 pub struct AtrisResponder {
@@ -30,10 +30,10 @@ impl AtrisResponder {
     // }
 
     /// Set the initator's description
-    pub async fn open_channel_with<T>(
+    pub async fn into_channel_parts_with<T>(
         mut self,
         offer_str: &String,
-    ) -> Result<(String, impl Future<Output = Option<AtrisChannel<T>>>)>
+    ) -> Result<(String, impl Future<Output = Option<AtrisChannelParts<T>>>)>
     where
         T: Serialize + Send + Sync + 'static,
         for<'d> T: Deserialize<'d>,
@@ -85,7 +85,7 @@ impl AtrisResponder {
         Ok((b64, async move {
             let data_channel = data_channel_receiver.recv().await;
             match data_channel {
-                Some(data_channel)=>Some(AtrisChannel::new(self.connection, data_channel)),
+                Some(data_channel)=>Some(AtrisChannelParts::new(self.connection, data_channel)),
                 _=>None
             }
         }))

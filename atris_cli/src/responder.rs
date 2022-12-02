@@ -6,6 +6,7 @@ use atris_client_lib::atris_common::{
     authenticate_user::AuthenticateUserResponse, cipher::ChaCha20Poly1305,
 };
 
+use atris_client_lib::comms::AtrisChannel;
 use atris_client_lib::comms::{initiator::AtrisInitiator, AtrisConnection};
 use atris_client_lib::{http_auth::AtrisAuth, AtrisAuthClient};
 
@@ -28,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Ok((initiator, client, auth))
     }
     // Create the client to the authorization server
-    let (intitator, client, session) = for_user("terrior", "password").await?;
+    let (initiator, client, session) = for_user("terrior", "password").await?;
 
     print!("Please provide the room key: ");
     std::io::stdout().flush();
@@ -39,9 +40,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let join_room_response = client.join_room(session.session_id, room_id).await??;
     let room_data = join_room_response.room_data.decrypt(&mut cipher).unwrap();
 
-    let channel = intitator
-        .into_channel_with::<String>(&room_data.responder_string)
+    println!("RoomKey: {:?}", room_data.symmetric_key);
+
+    let parts = initiator
+        .into_channel_parts_with::<String>(&room_data.responder_string)
         .await?;
+
+    let channel = AtrisChannel::new(parts, cipher);
 
     channel.io_loop().await;
     Ok(())

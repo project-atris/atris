@@ -6,7 +6,7 @@ use webrtc::{
     data_channel::RTCDataChannel, peer_connection::sdp::session_description::RTCSessionDescription,
 };
 
-use super::signal;
+use super::{signal, AtrisChannelParts};
 
 use super::{AtrisChannel, AtrisConnection};
 
@@ -63,7 +63,7 @@ impl AtrisInitiator {
         Ok(b64)
     }
     /// If we created an initiator, feed the responder's response here
-    pub async fn into_channel_with<T>(self, responder_string: &String) -> Result<AtrisChannel<T>>
+    pub async fn into_channel_parts_with<T>(self, responder_string: &String) -> Result<AtrisChannelParts<T>>
     where
         T: Serialize + Send + Sync + 'static,
         for<'d> T: Deserialize<'d>,
@@ -81,7 +81,7 @@ impl AtrisInitiator {
             .await?;
 
         // Convert that channel into an AtrisChannel
-        let channel = AtrisChannel::new(self.connection, self.data_channel);
+        let channel = AtrisChannelParts::new(self.connection, self.data_channel);
         Ok(channel)
     }
 }

@@ -1,4 +1,5 @@
 use atris_client_lib::atris_common::authenticate_user::AuthenticateUserResponse;
+use atris_client_lib::comms::AtrisChannel;
 use atris_client_lib::comms::responder::AtrisResponder;
 use atris_client_lib::comms::{initiator::AtrisInitiator, AtrisConnection};
 use atris_client_lib::{http_auth::AtrisAuth, AtrisAuthClient};
@@ -32,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             .await
     )??;
     let (terrior2_responder_string, terrior2_channel) = terrior2_responder
-        .open_channel_with::<String>(&room.initiator_string)
+        .into_channel_parts_with::<String>(&room.initiator_string)
         .await?;
     let set_room = dbg!(
         terrior2
@@ -44,10 +45,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             )
             .await
     )??;
-    let mut terrior_channel = terrior_initiator
-        .into_channel_with::<String>(&terrior2_responder_string)
+    let mut terrior_parts = terrior_initiator
+        .into_channel_parts_with::<String>(&terrior2_responder_string)
         .await?;
-    let mut terrior2_channel = terrior2_channel.await.ok_or("Ew!")?;
+    let mut terrior_channel = AtrisChannel::new(terrior_parts, set_room.room_symmetric_key.as_cipher());
+    let mut terrior2_channel =  AtrisChannel::new(terrior2_channel.await.ok_or("Ew!")?, set_room.room_symmetric_key.as_cipher());
 
     terrior_channel.send("From terrior".into()).await;
     dbg!(terrior2_channel.receive().await);

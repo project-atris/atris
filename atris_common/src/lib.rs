@@ -22,6 +22,9 @@ impl CipherKey {
     pub fn generate() -> Self {
         Cipher::generate_key(&mut OsRng).into()
     }
+    pub fn as_cipher(&self)->Cipher {
+        Cipher::new(&self.0)
+    }
 }
 impl From<cipher::Key> for CipherKey {
     fn from(key: cipher::Key) -> Self {

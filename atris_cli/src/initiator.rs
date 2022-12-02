@@ -1,6 +1,10 @@
+use std::borrow::Borrow;
 use std::io::{stdin, stdout};
 
+use atris_client_lib::atris_common::Cipher;
 use atris_client_lib::atris_common::authenticate_user::AuthenticateUserResponse;
+use atris_client_lib::atris_common::cipher::KeyInit;
+use atris_client_lib::comms::AtrisChannel;
 use atris_client_lib::comms::responder::AtrisResponder;
 use atris_client_lib::comms::{initiator::AtrisInitiator, AtrisConnection};
 use atris_client_lib::{http_auth::AtrisAuth, AtrisAuthClient};
@@ -39,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("Ask them to join you!\nRoom ID: {}", room.room_id);
     let responder = AtrisResponder::new().await?;
     let (responder_string, channel_future) = responder
-        .open_channel_with::<String>(&room.initiator_string)
+        .into_channel_parts_with::<String>(&room.initiator_string)
         .await?;
     // dbg!(&room.initiator_string);
     let room_symm_key =
@@ -52,12 +56,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             )
             .await
     ??;
+    println!("RoomKey: {:?}", room_symm_key.room_symmetric_key);
 
     let mut out = stdout();
     writeln!(out,"Room symmetric key received");
     out.flush();
 
-    let channel = channel_future.await.ok_or("No channel recieved!")?;
+    let channel_parts = channel_future.await.ok_or("No channel recieved!")?;
+    let channel = AtrisChannel::new(channel_parts, room_symm_key.room_symmetric_key.as_cipher());
 
     let mut out = stdout();
     writeln!(out,"Connection established!");
