@@ -9,11 +9,11 @@ pub struct JoinRoomRequest {
     pub room_id: u16,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct JoinRoomResponse {
     pub room_data: Encrypted<RoomData>,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub enum JoinRoomError {
     InvalidSessionId(CipherKey),
     NonexistentRoomId(u16),

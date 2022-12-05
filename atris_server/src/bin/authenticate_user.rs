@@ -11,19 +11,23 @@ run_lambda_http!(
     |request:Request<AuthenticateUserRequest>|->Result<AuthenticateUserResponse, AuthenticateUserError> {
 
     let (_,request) = request.into_parts();
+    dbg!(0);
 
     // Retrieve user from database
     let auth_client = AtrisAuthDBClient::new().await;
-    let user = auth_client
+    let user = dbg!(auth_client
         .get_user(request.username.clone())
         .await? //return any database errors
-        .ok_or(AuthenticateUserError::UnknownUsername(request.username.clone()))?;  //return user doesn't exist error
+        .ok_or(AuthenticateUserError::UnknownUsername(request.username.clone())))?;  //return user doesn't exist error
+    dbg!(1);
 
     // Confirm password, return any errors
     password_hash::PasswordHash::new(&user.password_hash)
         .map_err(|_| AuthenticateUserError::MissingPassword)?   //check for existing password
         .verify_password(&[&Argon2::default()], request.password_attempt)
         .map_err(|_| AuthenticateUserError::WrongPassword)?;    //check for incorrect password
+
+    dbg!(2);
 
     // If no errors, then user has been authenticated, create session
     let session_client = AtrisSessionDBClient::new().await;
@@ -32,5 +36,6 @@ run_lambda_http!(
         CreateSessionError::DuplicateSession(_) => todo!(),
         CreateSessionError::DatabaseWriteError => AuthenticateUserError::DatabaseWrite,
     })?;
+    dbg!(3);
     Ok(AuthenticateUserResponse{session_id})
 });

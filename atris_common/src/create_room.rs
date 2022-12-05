@@ -10,12 +10,12 @@ pub struct CreateRoomRequest {
     pub other_user_name: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub struct CreateRoomResponse {
     pub room_id: u16,
     pub initiator_string: String,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub enum CreateRoomError {
     BincodeError,
     EncryptionError,

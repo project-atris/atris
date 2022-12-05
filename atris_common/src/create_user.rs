@@ -17,7 +17,7 @@ pub struct CreateUserRequest {
 pub struct CreateUserResponse; // TODO: See if anything else needs to be returned to user
 
 /// A response to a [`CreateUserRequest`] on the atris auth server. For success response, see [`CreateUserResponse`]
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub enum CreateUserError {
     /// The username requested already exists in the server
     DuplicateUsername(String),

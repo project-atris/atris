@@ -18,13 +18,13 @@ pub struct AuthenticateUserRequest {
 
 /// A successful response to a [`AuthenticateUserRequest`] on the atris auth server.
 ///  - For error response, see [`AuthenticateUserError`]
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub struct AuthenticateUserResponse {
     pub session_id: CipherKey,
 }
 
 /// A response to a [`AuthenticateUserRequest`] on the atris auth server. For success response, see [`AuthenticateUserResponse`]
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub enum AuthenticateUserError {
     /// The username attempted was not found in the database
     UnknownUsername(String),

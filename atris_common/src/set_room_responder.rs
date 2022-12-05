@@ -16,7 +16,7 @@ pub struct SetRoomResponderRequest {
 pub struct SetRoomResponderResponse {
     pub room_symmetric_key: CipherKey,
 }
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug,Clone)]
 pub enum SetRoomResponderError {
     BincodeError,
     EncryptionError,

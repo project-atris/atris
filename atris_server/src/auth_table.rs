@@ -9,6 +9,7 @@ use aws_sdk_dynamodb::{model::AttributeValue, types::SdkError};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 //
+#[derive(Debug)]
 pub struct User {
     /// The user's username
     pub username: String,

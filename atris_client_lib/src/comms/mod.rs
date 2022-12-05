@@ -102,10 +102,16 @@ pub struct AtrisChannelParts<T> {
     sender: Sender<Encrypted<T>>,
     receiver: Receiver<Encrypted<T>>,
 }
+
 pub struct AtrisChannel<T> {
     atris_channel_internal: AtrisChannelParts<T>,
     cipher: Cipher,
     phantom_data:PhantomData<T>
+}
+impl <T> Debug for AtrisChannel<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AtrisChannel").finish()
+    }
 }
 impl<T> AtrisChannelParts<T>
 where
