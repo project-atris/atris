@@ -1,5 +1,8 @@
+use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc};
+use std::vec;
 
 use atris_client_lib::atris_common::create_room::{CreateRoomResponse, CreateRoomError};
 use atris_client_lib::atris_common::join_room::JoinRoomResponse;
@@ -8,8 +11,9 @@ use atris_client_lib::atris_common::authenticate_user::AuthenticateUserResponse;
 use atris_client_lib::comms::AtrisChannel;
 use atris_client_lib::comms::responder::AtrisResponder;
 use client::{AtrisClient};
-use iced::executor;
-use iced::widget::{button, container, text,text_input, Column, radio};
+use iced::{executor, Subscription, subscription};
+use iced::futures::lock::Mutex;
+use iced::widget::{button, container, text,text_input, Column, radio, Row};
 use iced::{
     Alignment, Application, Command, Element, Length, Settings,
     Theme,
@@ -53,11 +57,29 @@ pub enum Atris {
     },
     MessagePage {
         room_id:u16,
-        messages: Vec<String>,
-        message_channel: AtrisChannel<String>
+        messages: Vec<AtrisMessage>,
+        current_message:String,
+        message_channel: Arc<Mutex<AtrisChannel<AtrisMessageData>>>
     }
     // 
 }
+#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
+pub enum AtrisMessage {
+    Sent(String),
+    Received(String)
+}
+
+// #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
+// pub enum AtrisMessageData {
+//     Text(String),
+//     File{
+//         #[serde(with = "serde_bytes")]
+//         data:Vec<u8>,
+//         name:String,
+//     }
+// }
+pub type AtrisMessageData =(String);
+
 #[derive(Debug,Clone)]
 pub enum Message {
     // LoginPage
@@ -77,12 +99,32 @@ pub enum Message {
     JoinRoom,
     JoinRoomFinished(Result<JoinRoomResponse, client::ClientError>),
 
-    MessageChannelRecieved(Arc<AtrisChannel<String>>),
+    MessageChannelRecieved(Arc<Mutex<AtrisChannel<AtrisMessageData>>>),
+    ReceiveMessage(AtrisMessageData),
+    ReceiveMessageFailed,
+
+    SendMessage,
+    MessageSent(String),
+
+    UpdateCurrentMessage(String),
+    SendFile(String), //includes the local directory of the file to send
 
     // RoomCreated(Result<AuthenticateUserResponse,String>,Arc<AtrisClient>),
     SubmitUserInfo,
     CreateClient,
 }
+
+async fn wait_for_next_message_actually(channel:&Arc<Mutex<AtrisChannel<AtrisMessageData>>>)->Message {
+    dbg!("Waiting for lock to receive");
+    let mut lock = channel.lock().await;
+    dbg!("Got lock to receive");
+    let msg = lock.receive().await.and_then(|r|dbg!(r).ok()).map(Message::ReceiveMessage).unwrap_or(Message::ReceiveMessageFailed);
+    drop(lock);
+    msg
+}
+// fn wait_for_next_message(channel:Arc<Mutex<AtrisChannel<AtrisMessageData>>>) -> Command<Message> {
+//     Command::perform(wait_for_next_message_actually(channel), |a|a)
+// }
 
 impl Application for Atris {
     type Message = Message;
@@ -99,6 +141,20 @@ impl Application for Atris {
 
     fn title(&self) -> String {
         "Example".into()
+    }
+
+    fn subscription(&self) -> iced::Subscription<Self::Message> {
+        if let Self::MessagePage { message_channel,.. } = self {
+            subscription::unfold((), message_channel.clone(), |channel|async move {
+                let msg = {
+                    let mut lock = channel.lock().await;
+                    lock.try_receive().ok().map(Message::ReceiveMessage)
+                };
+                (msg,channel)
+            })
+        }else{
+            Subscription::none()
+        }
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
@@ -137,7 +193,7 @@ impl Application for Atris {
                                     let atris_responder = match AtrisResponder::new().await {
                                         Ok(responder)=>{
                                             match responder
-                                            .into_channel_parts_with::<String>(&room.initiator_string)
+                                            .into_channel_parts_with::<AtrisMessageData>(&room.initiator_string)
                                             .await { 
                                                 Ok((responder_string, channel_future))=>{
                                                     Ok((atris_client
@@ -155,7 +211,7 @@ impl Application for Atris {
                                     };
                                     if let Ok((Ok(set_room_response),Some(channel))) = atris_responder {
                                         let channel = AtrisChannel::new(channel, set_room_response.room_symmetric_key.as_cipher());
-                                        Message::MessageChannelRecieved(Arc::new(channel))
+                                        Message::MessageChannelRecieved(Arc::new(Mutex::new(channel)))
                                     }else{
                                         Message::RoomWaitingFailed("A".into())
                                     }
@@ -258,8 +314,62 @@ impl Application for Atris {
                     _=>unreachable!()
                 }
             }
-            Self::MessagePage { room_id, messages, message_channel } => {
+            Self::MessageWaitingPage { room_id, other_user } => {
+                match message {
+                    Message::MessageChannelRecieved(message_channel)=>{
+                        *self = Self::MessagePage { room_id:*room_id, messages: Default::default(), current_message: Default::default(), message_channel };
+                    }
+                    Message::RoomWaitingFailed(msg)=>{
+                        *self = Self::MesageWaitingFailed(msg);
+                    }
+                    _=>unreachable!()
+                }
                 Command::none()
+            }
+            Self::MessagePage { room_id, messages, current_message,message_channel,.. } => {
+                match message {
+                    Message::SendMessage => {
+                        let message_channel = message_channel.clone();
+                        let current_message = current_message.clone();
+                        Command::perform(async move {
+                            println!("Waiting for lock to send {current_message:?}");
+                            let mut lock = message_channel.lock().await;
+                            println!("Got lock to send {current_message:?}");                            
+                            lock.send(current_message.clone()).await;
+                            // lock.send(AtrisMessageData::Text(current_message.clone())).await;
+                            drop(lock);
+                            current_message
+                        }, Message::MessageSent)
+                    },
+                    Message::UpdateCurrentMessage(m) => {
+                        *current_message = m;
+                        Command::none()
+                    }
+                    Message::ReceiveMessage(m)=>{
+                        match m {
+                            // AtrisMessageData::Text(m)=>{
+                            //     messages.push(AtrisMessage::Received(m));
+                            // }
+                            m => {
+                                messages.push(AtrisMessage::Received(m));
+                            }
+                            _=>unreachable!()
+                        }
+                        Command::none()
+                        // wait_for_next_message(message_channel.clone())
+                    }
+                    Message::ReceiveMessageFailed=>{
+                        Command::none()
+                    }
+                    Message::MessageSent(s)=>{
+                        messages.push(AtrisMessage::Sent(s));
+                        Command::none()
+                    }
+                    d=>{
+                        dbg!(d);
+                        unreachable!()
+                    }
+                }
             }
             _=>unreachable!()
         }
@@ -273,7 +383,12 @@ impl Application for Atris {
                 
                 let login_selector: Element<_> = radio("Create new account", LoginMode::CreateUser, Some(*login_select), Message::LoginSelector).into();
                 let login_selector1: Element<_> = radio("Login", LoginMode::LoginUser, Some(*login_select), Message::LoginSelector).into();
-                
+
+                let login_row:Element<_> = Row::with_children(vec![
+                    login_selector,
+                    login_selector1
+                ]).into();
+
                 let submit_button = button("Submit").on_press(Message::SubmitUserInfo);
                 
                 let mut inputs = Column::with_children(vec![
@@ -295,8 +410,7 @@ impl Application for Atris {
                         .center_y()
                         .padding(20)
                     )
-                    .push(login_selector)
-                    .push(login_selector1)
+                    .push(login_row)
                     .push(submit_button)
                     .into()
             },
@@ -310,7 +424,7 @@ impl Application for Atris {
                     .align_items(Alignment::Center)
                     .into()
             },
-            Self::Home {atris_client,session,other_user,room_id } => {
+            Self::Home {other_user,room_id,.. } => {
                 Column::with_children(vec![
                     text_input("Enter a username",&other_user,Message::UpdateOtherUser).into(),
                     button(text({
@@ -348,22 +462,30 @@ impl Application for Atris {
                     .into()
             },
 
-            Self::MessagePage { room_id, message_channel,messages } => {
-                Column::with_children(vec![
+            Self::MessagePage { room_id,messages,current_message,.. } => {
+                let mut header = vec![
                     text(format!("Room {}",room_id)).into(),
-                    text("Messages").into(),
-                ])
+                    text("Messages: ").into(),
+                ];
+
+                header.extend(messages.iter().map(|m|{
+                    text(match m {
+                        AtrisMessage::Received(r)=>format!("Rec: {r}"),
+                        AtrisMessage::Sent(s)=>format!("Sent: {s}"),
+                    }).into()
+                }));
+
+                let input = text_input("Enter a message", current_message, Message::UpdateCurrentMessage).into();
+                let send = button("Send").on_press(Message::SendMessage).into();
+
+                let input_row: Row<_> = Row::with_children(vec![input,send]).into();
+
+                Column::with_children(header)
                     .spacing(10)
                     .padding(10)
+                    .push(input_row)
                     .align_items(Alignment::Center)
                     .into()
-                // Column::with_children(vec![
-                //     text("Logging you in..").into(),
-                // ])
-                //     .spacing(10)
-                //     .padding(10)
-                //     .align_items(Alignment::Center)
-                //     .into()
             },
             Atris::CreateRoomError { other_user } => {
                     Column::with_children(vec![
