@@ -366,7 +366,7 @@ impl Application for Atris {
                 match message {
                     Message::SendMessage => {
                         let message_channel = message_channel.clone();
-                        let current_message = current_message.clone();
+                        let current_message = std::mem::take(current_message);
                         Command::perform(async move {
                             println!("Waiting for lock to send {current_message:?}");
                             let mut lock = message_channel.lock().await;
@@ -387,29 +387,40 @@ impl Application for Atris {
                                 messages.push(AtrisMessage::Received(m));
                             }
                             AtrisMessageData::File { data, name }=>{
-                                println!("Got file: {}",&name);
-                                let Some(mut original_path) = dirs::home_dir() else {
-                                    return Command::none();
+                                let filepath = native_dialog::FileDialog::new()
+                                    .set_location(&format!("~/Documents/"))
+                                    .set_filename(&name)
+                                    // .add_filter("All files", &[".*",""])
+
+                                    .show_save_single_file();
+                                if let Ok(Some(path)) = filepath {
+                                    std::fs::write(path, data);
                                 };
-                                original_path.push("Downloads");
-                                original_path.push(&name);
-                                dbg!(&data,&name);
-                                let res = if original_path.exists() {
-                                    let ext = original_path.extension().unwrap_or_default();
-                                    let prefix = original_path.with_extension("");
-                                    let path = &(1..).find_map(|number|{
-                                        let new_path = prefix.with_file_name(format!("{} ({number})",prefix.file_name().and_then(OsStr::to_str).unwrap_or(""))).with_extension(ext);
-                                        if !new_path.exists() {
-                                            Some(new_path)
-                                        }else {
-                                            None
-                                        }
-                                    }).unwrap();
-                                    std::fs::write(path, data)
-                                }else {
-                                    std::fs::write(original_path, data)
-                                };
-                                dbg!(&res);
+
+
+                                // println!("Got file: {}",&name);
+                                // let Some(mut original_path) = dirs::home_dir() else {
+                                //     return Command::none();
+                                // };
+                                // original_path.push("Downloads");
+                                // original_path.push(&name);
+                                // dbg!(&data,&name);
+                                // let res = if original_path.exists() {
+                                //     let ext = original_path.extension().unwrap_or_default();
+                                //     let prefix = original_path.with_extension("");
+                                //     let path = &(1..).find_map(|number|{
+                                //         let new_path = prefix.with_file_name(format!("{} ({number})",prefix.file_name().and_then(OsStr::to_str).unwrap_or(""))).with_extension(ext);
+                                //         if !new_path.exists() {
+                                //             Some(new_path)
+                                //         }else {
+                                //             None
+                                //         }
+                                //     }).unwrap();
+                                //     std::fs::write(path, data)
+                                // }else {
+                                //     std::fs::write(original_path, data)
+                                // };
+                                // dbg!(&res);
 
                                 // res
 
@@ -462,6 +473,7 @@ impl Application for Atris {
                         // }, |a|a)
                         let filepath = native_dialog::FileDialog::new()
                             .set_location("~/Documents")
+                            .add_filter("All files", &[".*",""])
                             .show_open_single_file();
 
                         Command::perform(async {
