@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::ffi::OsStr;
+use std::path::{PathBuf, Path};
 use std::rc::Rc;
 use std::sync::{Arc};
 use std::vec;
@@ -11,6 +13,7 @@ use atris_client_lib::atris_common::authenticate_user::AuthenticateUserResponse;
 use atris_client_lib::comms::AtrisChannel;
 use atris_client_lib::comms::responder::AtrisResponder;
 use client::{AtrisClient};
+use iced::alignment::Horizontal;
 use iced::{executor, Subscription, subscription};
 use iced::futures::lock::Mutex;
 use iced::widget::{button, container, text,text_input, Column, radio, Row};
@@ -69,16 +72,16 @@ pub enum AtrisMessage {
     Received(String)
 }
 
-// #[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
-// pub enum AtrisMessageData {
-//     Text(String),
-//     File{
-//         #[serde(with = "serde_bytes")]
-//         data:Vec<u8>,
-//         name:String,
-//     }
-// }
-pub type AtrisMessageData =(String);
+#[derive(Debug,Clone,serde::Serialize,serde::Deserialize)]
+pub enum AtrisMessageData {
+    Text(String),
+    File{
+        #[serde(with = "serde_bytes")]
+        data:Vec<u8>,
+        name:String,
+    }
+}
+// pub type AtrisMessageData = String;
 
 #[derive(Debug,Clone)]
 pub enum Message {
@@ -107,11 +110,14 @@ pub enum Message {
     MessageSent(String),
 
     UpdateCurrentMessage(String),
-    SendFile(String), //includes the local directory of the file to send
+    SendFile, //includes the local directory of the file to send
+    ActualSendFile(PathBuf),
 
     // RoomCreated(Result<AuthenticateUserResponse,String>,Arc<AtrisClient>),
     SubmitUserInfo,
     CreateClient,
+
+    Nop
 }
 
 async fn wait_for_next_message_actually(channel:&Arc<Mutex<AtrisChannel<AtrisMessageData>>>)->Message {
@@ -131,6 +137,7 @@ impl Application for Atris {
     type Theme = Theme;
     type Executor = executor::Default;
     type Flags = ();
+
 
     fn new(_: Self::Flags) -> (Self, Command<Self::Message>) {
         (
@@ -162,6 +169,8 @@ impl Application for Atris {
             return Command::perform(async {
                 (AtrisClient::new().await).map(Arc::new).map_err(|_|{})
             },Message::ClientCreated);
+        }else if let Message::Nop = message {
+            return Command::none()
         };
         match self {
             Self::Home { atris_client, session, other_user, room_id } =>{
@@ -248,7 +257,7 @@ impl Application for Atris {
                             if let Ok(c) = Arc::try_unwrap(atris_client) {
                                 Command::perform(async move {
                                     println!("Done unwrapping, Making parts");
-                                    let parts = c.initiator.into_channel_parts_with::<String>(&room_data.responder_string).await.unwrap();
+                                    let parts = c.initiator.into_channel_parts_with::<AtrisMessageData>(&room_data.responder_string).await.unwrap();
                                     println!("Making channel");
                                     let channel = AtrisChannel::new(parts, room_data.symmetric_key.as_cipher());
                                     println!("Done!");
@@ -361,8 +370,8 @@ impl Application for Atris {
                             println!("Waiting for lock to send {current_message:?}");
                             let mut lock = message_channel.lock().await;
                             println!("Got lock to send {current_message:?}");                            
-                            lock.send(current_message.clone()).await;
-                            // lock.send(AtrisMessageData::Text(current_message.clone())).await;
+                            // lock.send(current_message.clone()).await;
+                            lock.send(AtrisMessageData::Text(current_message.clone())).await;
                             drop(lock);
                             current_message
                         }, Message::MessageSent)
@@ -373,12 +382,37 @@ impl Application for Atris {
                     }
                     Message::ReceiveMessage(m)=>{
                         match m {
-                            // AtrisMessageData::Text(m)=>{
-                            //     messages.push(AtrisMessage::Received(m));
-                            // }
-                            m => {
+                            AtrisMessageData::Text(m)=>{
                                 messages.push(AtrisMessage::Received(m));
                             }
+                            AtrisMessageData::File { data, name }=>{
+                                let full_path = format!("~/Downloads/{name}");
+                                let mut path = Path::new(&full_path);
+                                let res = if path.exists() {
+                                    let ext = path.extension().unwrap_or_default();
+                                    let prefix = path.with_extension("");
+                                    let path = &(1..).find_map(|number|{
+                                        let new_path = prefix.with_file_name(format!("{} ({number})",prefix.file_name().and_then(OsStr::to_str).unwrap_or(""))).with_extension(ext);
+                                        if new_path.exists() {
+                                            Some(new_path)
+                                        }else {
+                                            None
+                                        }
+                                    }).unwrap();
+                                    std::fs::write(path, data)
+                                }else {
+                                    std::fs::write(path, data)
+                                };
+
+                                // res
+                                
+                                // file.txt
+                                // file(1).txt
+                                // file(2).txt
+                            }
+                            // m => {
+                            //     messages.push(AtrisMessage::Received(Atrim));
+                            // }
                             _=>unreachable!()
                         }
                         Command::none()
@@ -390,6 +424,38 @@ impl Application for Atris {
                     Message::MessageSent(s)=>{
                         messages.push(AtrisMessage::Sent(s));
                         Command::none()
+                    }
+                    Message::ActualSendFile(path)=>{
+                        let message_channel = message_channel.clone();
+                        Command::perform(async move {
+                            let bytes = match std::fs::read(&path) {
+                                Ok(bytes)=>bytes,
+                                _ => return Message::Nop
+                            };
+                            let filename = match path.as_path().file_name().and_then(OsStr::to_str) {
+                                Some(f)=>f,
+                                None=>return Message::Nop
+                            };
+                            let mut lock = message_channel.lock().await;
+                            if lock.send(AtrisMessageData::File{
+                                data:bytes,
+                                name:filename.into()
+                            }).await.is_err() {
+                                return Message::Nop
+                            };
+                            Message::MessageSent(format!("File {filename}"))
+                        }, |a|a)
+                    }
+
+                    Message::SendFile => {
+                        Command::perform(async move {
+                            let filepath = native_dialog::FileDialog::new().show_open_single_file();
+                            let path = match filepath {
+                                Ok(Some(path))=>path,
+                                _ => return Message::Nop
+                            };
+                            Message::ActualSendFile(path)
+                        }, |a|a)
                     }
                     d=>{
                         dbg!(d);
@@ -407,9 +473,8 @@ impl Application for Atris {
                 let username_input:Element<_> = text_input("Username", username, Message::UpdateUsername).into();
                 let password_input:Element<_> = text_input("Password", password, Message::UpdatePassword).into();
                 
-                let create_selector: Element<_> = radio("Create new account", LoginMode::CreateUser, Some(*login_select), Message::LoginSelector).into();                let login_selector1: Element<_> = radio("Login", LoginMode::LoginUser, Some(*login_select), Message::LoginSelector).into();
+                let create_selector: Element<_> = radio("Create new account", LoginMode::CreateUser, Some(*login_select), Message::LoginSelector).into();
                 let login_selector: Element<_> = radio("Login", LoginMode::LoginUser, Some(*login_select), Message::LoginSelector).into();
-
 
                 let login_row:Element<_> = Row::with_children(vec![
                     login_selector,
@@ -498,22 +563,27 @@ impl Application for Atris {
                 ];
 
                 header.extend(messages.iter().map(|m|{
-                    text(match m {
-                        AtrisMessage::Received(r)=>format!("Rec: {r}"),
-                        AtrisMessage::Sent(s)=>format!("Sent: {s}"),
-                    }).into()
+                    match m {
+                        AtrisMessage::Received(r)=>text(format!("Rec: {r}")).horizontal_alignment(Horizontal::Left),
+                        AtrisMessage::Sent(s)=>text(format!("Sent: {s}")).horizontal_alignment(Horizontal::Right),
+                    }.width(Length::Fill).into()
                 }));
 
                 let input = text_input("Enter a message", current_message, Message::UpdateCurrentMessage).into();
                 let send = button("Send").on_press(Message::SendMessage).into();
+                let send_file = button("Send File").on_press(Message::SendFile).into();
 
-                let input_row: Row<_> = Row::with_children(vec![input,send]).into();
+                let input_row: Row<_> = Row::with_children(vec![
+                    send_file,
+                    input,
+                    send,
+                ]).into();
 
                 Column::with_children(header)
                     .spacing(10)
                     .padding(10)
                     .push(input_row)
-                    .align_items(Alignment::Center)
+                    // .align_items(Alignment::Center)
                     .into()
             },
             Atris::CreateRoomError { other_user } => {
@@ -552,6 +622,7 @@ impl Application for Atris {
 pub fn main() -> iced::Result {
     let mut settings = Settings::default();
     settings.window.size = (500,500);
+    settings.exit_on_close_request = true;
     Atris::run(settings)
 }
 /*
