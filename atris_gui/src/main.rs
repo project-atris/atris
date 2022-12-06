@@ -97,9 +97,9 @@ pub enum Message {
     CreateRoom,
     CreateRoomFinished((Result<CreateRoomResponse, client::ClientError>,String)),
     JoinRoom,
-    JoinRoomFinished(Result<JoinRoomResponse, client::ClientError>),
+    JoinRoomFinished(u16,Result<JoinRoomResponse, client::ClientError>),
 
-    MessageChannelRecieved(Arc<Mutex<AtrisChannel<AtrisMessageData>>>),
+    MessageChannelReceived(Arc<Mutex<AtrisChannel<AtrisMessageData>>>),
     ReceiveMessage(AtrisMessageData),
     ReceiveMessageFailed,
 
@@ -211,7 +211,7 @@ impl Application for Atris {
                                     };
                                     if let Ok((Ok(set_room_response),Some(channel))) = atris_responder {
                                         let channel = AtrisChannel::new(channel, set_room_response.room_symmetric_key.as_cipher());
-                                        Message::MessageChannelRecieved(Arc::new(Mutex::new(channel)))
+                                        Message::MessageChannelReceived(Arc::new(Mutex::new(channel)))
                                     }else{
                                         Message::RoomWaitingFailed("A".into())
                                     }
@@ -231,8 +231,34 @@ impl Application for Atris {
                         if let Ok(room_id)=room_id {
                             Command::perform(async move {
                                 atris_client.join_room(session, room_id).await
-                            }, Message::JoinRoomFinished)
+                            },move |r|Message::JoinRoomFinished(room_id,r))
                         } else {
+                            Command::none()
+                        }
+                    },
+                    Message::JoinRoomFinished(room_id, r) => {
+                        if let Ok(join_room_response)=r {
+                            println!("Decrypting");
+                            let room_data = join_room_response.room_data.decrypt(&mut session.0.as_cipher()).unwrap();
+                            println!("Done decrupting, swapping");
+                            let Self::Home { atris_client, session, other_user, room_id } = std::mem::replace(self,Self::MessageWaitingPage {room_id,other_user:None }) else {
+                                unreachable!()
+                            };
+                            println!("Done swapping, unwrapping");
+                            if let Ok(c) = Arc::try_unwrap(atris_client) {
+                                Command::perform(async move {
+                                    println!("Done unwrapping, Making parts");
+                                    let parts = c.initiator.into_channel_parts_with::<String>(&room_data.responder_string).await.unwrap();
+                                    println!("Making channel");
+                                    let channel = AtrisChannel::new(parts, room_data.symmetric_key.as_cipher());
+                                    println!("Done!");
+                                    Message::MessageChannelReceived(Arc::new(Mutex::new(channel)))
+                                },|a|a)
+                            }else {
+                                println!("Too many client havers!");
+                                Command::none()
+                            }
+                        }else{
                             Command::none()
                         }
                     },
@@ -286,7 +312,7 @@ impl Application for Atris {
                 match message {
                     Message::ClientCreated(c)=>{
                         *self = match c {
-                            Ok(atris_client)=>Self::Login { error_message:None, atris_client, username: "".into(), password: "".into(),login_select:LoginMode::CreateUser },
+                            Ok(atris_client)=>Self::Login { error_message:None, atris_client, username: "".into(), password: "".into(),login_select:LoginMode::LoginUser },
                             Err(_)=>Self::ErrorCreatingClient
                         }
                     },
@@ -316,7 +342,7 @@ impl Application for Atris {
             }
             Self::MessageWaitingPage { room_id, other_user } => {
                 match message {
-                    Message::MessageChannelRecieved(message_channel)=>{
+                    Message::MessageChannelReceived(message_channel)=>{
                         *self = Self::MessagePage { room_id:*room_id, messages: Default::default(), current_message: Default::default(), message_channel };
                     }
                     Message::RoomWaitingFailed(msg)=>{
@@ -381,13 +407,16 @@ impl Application for Atris {
                 let username_input:Element<_> = text_input("Username", username, Message::UpdateUsername).into();
                 let password_input:Element<_> = text_input("Password", password, Message::UpdatePassword).into();
                 
-                let login_selector: Element<_> = radio("Create new account", LoginMode::CreateUser, Some(*login_select), Message::LoginSelector).into();
-                let login_selector1: Element<_> = radio("Login", LoginMode::LoginUser, Some(*login_select), Message::LoginSelector).into();
+                let create_selector: Element<_> = radio("Create new account", LoginMode::CreateUser, Some(*login_select), Message::LoginSelector).into();                let login_selector1: Element<_> = radio("Login", LoginMode::LoginUser, Some(*login_select), Message::LoginSelector).into();
+                let login_selector: Element<_> = radio("Login", LoginMode::LoginUser, Some(*login_select), Message::LoginSelector).into();
+
 
                 let login_row:Element<_> = Row::with_children(vec![
                     login_selector,
-                    login_selector1
-                ]).into();
+                    create_selector
+                ])
+                .padding(20)
+                .into();
 
                 let submit_button = button("Submit").on_press(Message::SubmitUserInfo);
                 

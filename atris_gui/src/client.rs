@@ -3,7 +3,7 @@ use iced_native::Debug;
 
 pub struct AtrisClient {
     server_client: AtrisAuth,
-    initiator:AtrisInitiator,
+    pub(crate) initiator:AtrisInitiator,
 }
 impl std::fmt::Debug for AtrisClient {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
