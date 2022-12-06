@@ -18,6 +18,7 @@ atris_client_lib = {path="../atris_client_lib"}
 serde = "1.0.145"
 serde_bytes = "0.11.7"
 native-dialog = "0.6.3"
+dirs = "4.0.0"
 
 [features]
 local=["atris_client_lib/local"]

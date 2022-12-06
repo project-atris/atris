@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::env::home_dir;
 use std::ffi::OsStr;
 use std::path::{PathBuf, Path};
 use std::rc::Rc;
@@ -386,14 +387,19 @@ impl Application for Atris {
                                 messages.push(AtrisMessage::Received(m));
                             }
                             AtrisMessageData::File { data, name }=>{
-                                let full_path = format!("~/Downloads/{name}");
-                                let mut path = Path::new(&full_path);
-                                let res = if path.exists() {
-                                    let ext = path.extension().unwrap_or_default();
-                                    let prefix = path.with_extension("");
+                                println!("Got file: {}",&name);
+                                let Some(mut original_path) = dirs::home_dir() else {
+                                    return Command::none();
+                                };
+                                original_path.push("Downloads");
+                                original_path.push(&name);
+                                dbg!(&data,&name);
+                                let res = if original_path.exists() {
+                                    let ext = original_path.extension().unwrap_or_default();
+                                    let prefix = original_path.with_extension("");
                                     let path = &(1..).find_map(|number|{
                                         let new_path = prefix.with_file_name(format!("{} ({number})",prefix.file_name().and_then(OsStr::to_str).unwrap_or(""))).with_extension(ext);
-                                        if new_path.exists() {
+                                        if !new_path.exists() {
                                             Some(new_path)
                                         }else {
                                             None
@@ -401,22 +407,19 @@ impl Application for Atris {
                                     }).unwrap();
                                     std::fs::write(path, data)
                                 }else {
-                                    std::fs::write(path, data)
+                                    std::fs::write(original_path, data)
                                 };
+                                dbg!(&res);
 
                                 // res
-                                
+
                                 // file.txt
                                 // file(1).txt
                                 // file(2).txt
                             }
-                            // m => {
-                            //     messages.push(AtrisMessage::Received(Atrim));
-                            // }
                             _=>unreachable!()
                         }
                         Command::none()
-                        // wait_for_next_message(message_channel.clone())
                     }
                     Message::ReceiveMessageFailed=>{
                         Command::none()
@@ -448,8 +451,20 @@ impl Application for Atris {
                     }
 
                     Message::SendFile => {
-                        Command::perform(async move {
-                            let filepath = native_dialog::FileDialog::new().show_open_single_file();
+                        // Command::perform(async move {
+                        //     let filepath = native_dialog::FileDialog::new()
+                        //     .show_open_single_file();
+                        //     let path = match filepath {
+                        //         Ok(Some(path))=>path,
+                        //         _ => return Message::Nop
+                        //     };
+                        //     Message::ActualSendFile(path)
+                        // }, |a|a)
+                        let filepath = native_dialog::FileDialog::new()
+                            .set_location("~/Documents")
+                            .show_open_single_file();
+
+                        Command::perform(async {
                             let path = match filepath {
                                 Ok(Some(path))=>path,
                                 _ => return Message::Nop
@@ -528,7 +543,7 @@ impl Application for Atris {
                             format!("Create a room with {}",other_user)
                         }
                     })).on_press(Message::CreateRoom).into(),
-                    text_input("Enter a room_id",&room_id,Message::UpdateRoomId).into(),
+                    text_input("Enter a room id",&room_id,Message::UpdateRoomId).into(),
                     button("Join room").on_press(Message::JoinRoom).into(),
                 ])
                     .spacing(10)
